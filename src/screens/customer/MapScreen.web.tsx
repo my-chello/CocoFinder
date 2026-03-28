@@ -403,9 +403,6 @@ export function MapScreen() {
                     <Text style={styles.mapHeroBadgeText}>{allLiveVendors.length} live</Text>
                   </View>
                 </View>
-                <Text style={styles.mapHeroCopy}>
-                  Google Maps is now used on web. Track live vendors, filter by distance, and jump straight into the best stop nearby.
-                </Text>
               </View>
 
               <View style={styles.filterBox}>
