@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
   createEmptyVendorOpeningHoursRow,
   formatVendorTimeValue,
@@ -62,6 +62,16 @@ export function VendorOpeningHoursEditor({
     });
   }
 
+  function normalizeTimeInput(value: string) {
+    const digits = value.replace(/[^\d]/g, '').slice(0, 4);
+
+    if (digits.length <= 2) {
+      return digits;
+    }
+
+    return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+  }
+
   return (
     <View style={styles.stack}>
       {rows.map((row) => {
@@ -93,21 +103,53 @@ export function VendorOpeningHoursEditor({
             </View>
 
             <View style={styles.timeRow}>
-              <Pressable
-                style={styles.timeField}
-                onPress={() => setActiveTimePicker({ rowId: row.id, field: 'openTime' })}
-              >
-                <Text style={styles.timeLabel}>Open from</Text>
-                <Text style={styles.timeValue}>{row.openTime || '08:00'}</Text>
-              </Pressable>
+              {Platform.OS === 'web' ? (
+                <>
+                  <View style={styles.timeField}>
+                    <Text style={styles.timeLabel}>Open from</Text>
+                    <TextInput
+                      value={row.openTime}
+                      onChangeText={(value) =>
+                        updateRow(row.id, { openTime: normalizeTimeInput(value) })
+                      }
+                      placeholder="08:00"
+                      placeholderTextColor="#94A3B8"
+                      style={styles.timeInput}
+                    />
+                  </View>
 
-              <Pressable
-                style={styles.timeField}
-                onPress={() => setActiveTimePicker({ rowId: row.id, field: 'closeTime' })}
-              >
-                <Text style={styles.timeLabel}>Until</Text>
-                <Text style={styles.timeValue}>{row.closeTime || '17:00'}</Text>
-              </Pressable>
+                  <View style={styles.timeField}>
+                    <Text style={styles.timeLabel}>Until</Text>
+                    <TextInput
+                      value={row.closeTime}
+                      onChangeText={(value) =>
+                        updateRow(row.id, { closeTime: normalizeTimeInput(value) })
+                      }
+                      placeholder="17:00"
+                      placeholderTextColor="#94A3B8"
+                      style={styles.timeInput}
+                    />
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Pressable
+                    style={styles.timeField}
+                    onPress={() => setActiveTimePicker({ rowId: row.id, field: 'openTime' })}
+                  >
+                    <Text style={styles.timeLabel}>Open from</Text>
+                    <Text style={styles.timeValue}>{row.openTime || '08:00'}</Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.timeField}
+                    onPress={() => setActiveTimePicker({ rowId: row.id, field: 'closeTime' })}
+                  >
+                    <Text style={styles.timeLabel}>Until</Text>
+                    <Text style={styles.timeValue}>{row.closeTime || '17:00'}</Text>
+                  </Pressable>
+                </>
+              )}
             </View>
 
             {isPickerActive ? (
@@ -198,6 +240,12 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontSize: 16,
     fontWeight: '700',
+  },
+  timeInput: {
+    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '700',
+    paddingVertical: 0,
   },
   timePickerWrap: {
     borderRadius: 14,

@@ -22,7 +22,7 @@ import {
   getVendorOpeningHoursSummary,
   type VendorOpeningHoursRow,
 } from '../../lib/vendorOpeningHours';
-import type { VendorProfileSetup } from '../../lib/vendorProfile';
+import type { VendorEditableProduct, VendorProfileSetup } from '../../lib/vendorProfile';
 
 export function VendorSetupScreen({
   onBack,
@@ -41,8 +41,15 @@ export function VendorSetupScreen({
   const [openingHoursRows, setOpeningHoursRows] = useState<VendorOpeningHoursRow[]>([
     createEmptyVendorOpeningHoursRow(),
   ]);
-  const [firstProductName, setFirstProductName] = useState('');
-  const [firstProductPrice, setFirstProductPrice] = useState('');
+  const [products, setProducts] = useState<VendorEditableProduct[]>([
+    {
+      id: 'vendor-product-primary',
+      name: '',
+      priceLabel: '',
+      isAvailable: true,
+      imageSymbol: '🛺',
+    },
+  ]);
   const [about, setAbout] = useState('');
   const [isResolvingCountry, setIsResolvingCountry] = useState(true);
 
@@ -107,8 +114,10 @@ export function VendorSetupScreen({
     country.trim().length > 0 &&
     phone.trim().length > 0 &&
     openingHours.trim().length > 0 &&
-    firstProductName.trim().length > 0 &&
-    firstProductPrice.trim().length > 0 &&
+    products.length > 0 &&
+    products.every(
+      (product) => product.name.trim().length > 0 && product.priceLabel.trim().length > 0
+    ) &&
     about.trim().length > 0;
 
   const missingFields = [
@@ -120,10 +129,49 @@ export function VendorSetupScreen({
     !country.trim() ? 'Country' : null,
     !phone.trim() ? 'Phone' : null,
     !openingHours.trim() ? 'Opening times' : null,
-    !firstProductName.trim() ? 'First product' : null,
-    !firstProductPrice.trim() ? 'Price' : null,
+    products.length === 0 ? 'At least one product' : null,
+    products.some((product) => !product.name.trim()) ? 'Product name' : null,
+    products.some((product) => !product.priceLabel.trim()) ? 'Product price' : null,
     !about.trim() ? 'About' : null,
   ].filter(Boolean) as string[];
+
+  useEffect(() => {
+    setProducts((current) =>
+      current.map((product, index) => ({
+        ...product,
+        imageSymbol: product.imageSymbol?.trim() || logoSymbol.trim() || (index === 0 ? '🛺' : '📦'),
+      }))
+    );
+  }, [logoSymbol]);
+
+  function updateProduct(
+    productId: string,
+    field: keyof VendorEditableProduct,
+    value: string | boolean | undefined
+  ) {
+    setProducts((current) =>
+      current.map((product) =>
+        product.id === productId ? { ...product, [field]: value } : product
+      )
+    );
+  }
+
+  function addProduct() {
+    setProducts((current) => [
+      ...current,
+      {
+        id: `vendor-product-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: '',
+        priceLabel: '',
+        isAvailable: true,
+        imageSymbol: logoSymbol.trim() || '📦',
+      },
+    ]);
+  }
+
+  function removeProduct(productId: string) {
+    setProducts((current) => current.filter((product) => product.id !== productId));
+  }
 
   function handleSubmit() {
     if (!isComplete) {
@@ -144,18 +192,16 @@ export function VendorSetupScreen({
       phone: phone.trim(),
       openingHours,
       openingHoursRows,
-      firstProductName: firstProductName.trim(),
-      firstProductPrice: formatPriceForCountry(country.trim(), firstProductPrice.trim()),
+      firstProductName: products[0]?.name.trim() ?? '',
+      firstProductPrice: formatPriceForCountry(country.trim(), products[0]?.priceLabel.trim() ?? ''),
       about: about.trim(),
-      products: [
-        {
-          id: 'vendor-product-primary',
-          name: firstProductName.trim(),
-          priceLabel: formatPriceForCountry(country.trim(), firstProductPrice.trim()),
-          isAvailable: true,
-          imageSymbol: logoSymbol.trim(),
-        },
-      ],
+      products: products.map((product, index) => ({
+        ...product,
+        id: index === 0 ? 'vendor-product-primary' : product.id,
+        name: product.name.trim(),
+        priceLabel: formatPriceForCountry(country.trim(), product.priceLabel.trim()),
+        imageSymbol: product.imageSymbol?.trim() || logoSymbol.trim() || '📦',
+      })),
     });
   }
 
@@ -290,27 +336,53 @@ export function VendorSetupScreen({
                 </Text>
               </View>
 
-              <View style={styles.row}>
-                <View style={[styles.inputGroup, styles.rowItem]}>
-                  <Text style={styles.inputLabel}>First product</Text>
-                  <TextInput
-                    value={firstProductName}
-                    onChangeText={setFirstProductName}
-                    placeholder="Fresh Coconut Water"
-                    placeholderTextColor="#9CA3AF"
-                    style={styles.input}
-                  />
+              <View style={styles.inputGroup}>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.inputLabel}>Products</Text>
+                  <Pressable style={styles.inlineAddButton} onPress={addProduct}>
+                    <Text style={styles.inlineAddButtonText}>+ Add product</Text>
+                  </Pressable>
                 </View>
 
-                <View style={[styles.inputGroup, styles.rowItemSmall]}>
-                  <Text style={styles.inputLabel}>Price</Text>
-                  <TextInput
-                  value={firstProductPrice}
-                  onChangeText={setFirstProductPrice}
-                  placeholder="5.50"
-                  placeholderTextColor="#9CA3AF"
-                  style={styles.input}
-                />
+                <View style={styles.productStack}>
+                  {products.map((product, index) => (
+                    <View key={product.id} style={styles.productCard}>
+                      <View style={styles.productCardHeader}>
+                        <Text style={styles.productCardTitle}>
+                          {index === 0 ? 'Primary product' : `Product ${index + 1}`}
+                        </Text>
+                        {products.length > 1 ? (
+                          <Pressable onPress={() => removeProduct(product.id)} hitSlop={10}>
+                            <Text style={styles.productRemoveText}>Remove</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
+
+                      <View style={styles.row}>
+                        <View style={[styles.inputGroup, styles.rowItem]}>
+                          <Text style={styles.inputLabel}>Name</Text>
+                          <TextInput
+                            value={product.name}
+                            onChangeText={(value) => updateProduct(product.id, 'name', value)}
+                            placeholder="Fresh Coconut Water"
+                            placeholderTextColor="#9CA3AF"
+                            style={styles.input}
+                          />
+                        </View>
+
+                        <View style={[styles.inputGroup, styles.rowItemSmall]}>
+                          <Text style={styles.inputLabel}>Price</Text>
+                          <TextInput
+                            value={product.priceLabel}
+                            onChangeText={(value) => updateProduct(product.id, 'priceLabel', value)}
+                            placeholder="5.50"
+                            placeholderTextColor="#9CA3AF"
+                            style={styles.input}
+                          />
+                        </View>
+                      </View>
+                    </View>
+                  ))}
                 </View>
               </View>
 
@@ -451,6 +523,12 @@ const styles = StyleSheet.create({
   inputGroup: {
     gap: 8,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   row: {
     flexDirection: 'row',
     gap: 12,
@@ -498,6 +576,44 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontSize: 13,
     lineHeight: 20,
+  },
+  inlineAddButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#ECFDF5',
+  },
+  inlineAddButtonText: {
+    color: '#0F766E',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  productStack: {
+    gap: 12,
+  },
+  productCard: {
+    padding: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F8FAFC',
+    gap: 12,
+  },
+  productCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  productCardTitle: {
+    color: '#111827',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  productRemoveText: {
+    color: '#B42318',
+    fontSize: 13,
+    fontWeight: '800',
   },
   submitButton: {
     minHeight: 64,
