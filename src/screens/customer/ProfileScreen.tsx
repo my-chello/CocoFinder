@@ -91,6 +91,14 @@ function TrashOutlineIcon() {
   );
 }
 
+function confirmInBrowser(title: string, message: string) {
+  if (Platform.OS !== 'web' || typeof globalThis.confirm !== 'function') {
+    return true;
+  }
+
+  return globalThis.confirm(`${title}\n\n${message}`);
+}
+
 function VendorProfileEditor({
   initialProfile,
   vendorLiveState,
@@ -1442,6 +1450,30 @@ export function ProfileScreen() {
   }
 
   function handleVendorLogout() {
+    const performLogout = async () => {
+      try {
+        const offlineState: VendorLiveState = {
+          isLive: false,
+          location: vendorLiveState.location,
+        };
+
+        await saveVendorLiveState(offlineState);
+        setVendorLiveState(offlineState);
+        await signOut();
+      } catch {
+        Alert.alert('Log out failed', 'We could not log you out right now. Please try again.');
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (!confirmInBrowser('Log out', 'Are you sure you want to log out?')) {
+        return;
+      }
+
+      void performLogout();
+      return;
+    }
+
     Alert.alert('Log out', 'Are you sure you want to log out?', [
       {
         text: 'Cancel',
@@ -1451,26 +1483,30 @@ export function ProfileScreen() {
         text: 'Log out',
         style: 'destructive',
         onPress: () => {
-          void (async () => {
-            try {
-              const offlineState: VendorLiveState = {
-                isLive: false,
-                location: vendorLiveState.location,
-              };
-
-              await saveVendorLiveState(offlineState);
-              setVendorLiveState(offlineState);
-              await signOut();
-            } catch {
-              Alert.alert('Log out failed', 'We could not log you out right now. Please try again.');
-            }
-          })();
+          void performLogout();
         },
       },
     ]);
   }
 
   function handleCustomerLogout() {
+    const performLogout = async () => {
+      try {
+        await signOut();
+      } catch {
+        Alert.alert('Log out failed', 'We could not log you out right now. Please try again.');
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (!confirmInBrowser('Log out', 'Are you sure you want to log out?')) {
+        return;
+      }
+
+      void performLogout();
+      return;
+    }
+
     Alert.alert('Log out', 'Are you sure you want to log out?', [
       {
         text: 'Cancel',
@@ -1480,13 +1516,7 @@ export function ProfileScreen() {
         text: 'Log out',
         style: 'destructive',
         onPress: () => {
-          void (async () => {
-            try {
-              await signOut();
-            } catch {
-              Alert.alert('Log out failed', 'We could not log you out right now. Please try again.');
-            }
-          })();
+          void performLogout();
         },
       },
     ]);
