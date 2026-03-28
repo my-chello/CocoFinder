@@ -4,6 +4,7 @@ import {
   FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -154,9 +155,12 @@ function OnboardingVisual({ slide }: { slide: OnboardingSlide }) {
 export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
   const flatListRef = useRef<FlatList<OnboardingSlide> | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const activeSlide = slides[activeIndex];
 
   function goToSlide(index: number) {
-    flatListRef.current?.scrollToIndex({ index, animated: true });
+    if (Platform.OS !== 'web') {
+      flatListRef.current?.scrollToIndex({ index, animated: true });
+    }
     setActiveIndex(index);
   }
 
@@ -175,7 +179,7 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: slides[activeIndex].background }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: activeSlide.background }]}>
       <View style={styles.root}>
         <View style={styles.skipRow}>
           <Pressable onPress={onComplete} hitSlop={12}>
@@ -183,30 +187,42 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
           </Pressable>
         </View>
 
-        <FlatList
-          ref={flatListRef}
-          data={slides}
-          keyExtractor={(item) => item.id}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onMomentumScrollEnd={handleMomentumEnd}
-          renderItem={({ item }) => (
-            <View style={styles.slide}>
-              <OnboardingVisual slide={item} />
-              <View style={styles.contentCard}>
-                <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.description}>{item.description}</Text>
-              </View>
+        {Platform.OS === 'web' ? (
+          <View key={activeSlide.id} style={styles.slide}>
+            <OnboardingVisual slide={activeSlide} />
+            <View style={styles.contentCard}>
+              <Text style={styles.title}>{activeSlide.title}</Text>
+              <Text style={styles.description}>{activeSlide.description}</Text>
             </View>
-          )}
-        />
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={slides}
+            keyExtractor={(item) => item.id}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={handleMomentumEnd}
+            renderItem={({ item }) => (
+              <View style={styles.slide}>
+                <OnboardingVisual slide={item} />
+                <View style={styles.contentCard}>
+                  <Text style={styles.title}>{item.title}</Text>
+                  <Text style={styles.description}>{item.description}</Text>
+                </View>
+              </View>
+            )}
+          />
+        )}
 
         <View style={styles.footer}>
           <View style={styles.dotsRow}>
             {slides.map((slide, index) => (
-              <View
+              <Pressable
                 key={slide.id}
+                onPress={() => goToSlide(index)}
+                hitSlop={8}
                 style={[styles.dot, index === activeIndex && styles.dotActive]}
               />
             ))}
