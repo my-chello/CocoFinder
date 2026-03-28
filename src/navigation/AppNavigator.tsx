@@ -5,6 +5,7 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { Platform, StyleSheet, View } from 'react-native';
 import { palette } from '../config/theme';
+import { useAuth } from '../context/AuthContext';
 import { FavoritesScreen } from '../screens/customer/FavoritesScreen';
 import { MapScreen } from '../screens/customer/MapScreen';
 import { ProfileScreen } from '../screens/customer/ProfileScreen';
@@ -63,10 +64,17 @@ function triggerTabHaptic() {
 }
 
 export function AppNavigator() {
+  const { authRole, activeViewMode } = useAuth();
+  const isVendorView = authRole === 'vendor' || (authRole === 'admin' && activeViewMode === 'vendor');
+  const initialRouteName = isVendorView ? 'Profile' : 'Map';
+
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer
+      key={`nav-${authRole ?? 'guest'}-${activeViewMode}`}
+      theme={navTheme}
+    >
       <Tab.Navigator
-        initialRouteName="Map"
+        initialRouteName={initialRouteName}
         screenOptions={({ route }) => ({
           headerShown: false,
           tabBarShowLabel: true,
