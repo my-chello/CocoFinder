@@ -264,12 +264,15 @@ export default function App() {
       await saveVendorProfile(profile);
       setHasCompletedVendorSetup(true);
     } catch (error) {
-      Alert.alert(
-        'Vendor setup failed',
+      const message =
         error instanceof Error
           ? error.message
-          : 'Could not save your vendor profile to the database.'
+          : 'Could not save your vendor profile to the database.';
+      Alert.alert(
+        'Vendor setup failed',
+        message
       );
+      throw new Error(message);
     }
   }
 

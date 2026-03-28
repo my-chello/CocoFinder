@@ -3,6 +3,7 @@ import { Picker } from '@react-native-picker/picker';
 import * as Location from 'expo-location';
 import {
   Alert,
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -29,7 +30,7 @@ export function VendorSetupScreen({
   onComplete,
 }: {
   onBack: () => void;
-  onComplete: (profile: VendorProfileSetup) => void;
+  onComplete: (profile: VendorProfileSetup) => Promise<void> | void;
 }) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -52,6 +53,8 @@ export function VendorSetupScreen({
   ]);
   const [about, setAbout] = useState('');
   const [isResolvingCountry, setIsResolvingCountry] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitNotice, setSubmitNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -165,44 +168,58 @@ export function VendorSetupScreen({
         priceLabel: '',
         isAvailable: true,
         imageSymbol: logoSymbol.trim() || '📦',
-      },
+        },
     ]);
+    setSubmitNotice(null);
   }
 
   function removeProduct(productId: string) {
     setProducts((current) => current.filter((product) => product.id !== productId));
+    setSubmitNotice(null);
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!isComplete) {
-      Alert.alert(
-        'Complete vendor setup',
-        `Please fill in: ${missingFields.join(', ')}`
-      );
+      const message = `Please fill in: ${missingFields.join(', ')}`;
+      setSubmitNotice(message);
+      Alert.alert('Complete vendor setup', message);
       return;
     }
 
-    onComplete({
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      businessName: businessName.trim(),
-      logoSymbol: logoSymbol.trim(),
-      category: category.trim(),
-      country: country.trim(),
-      phone: phone.trim(),
-      openingHours,
-      openingHoursRows,
-      firstProductName: products[0]?.name.trim() ?? '',
-      firstProductPrice: formatPriceForCountry(country.trim(), products[0]?.priceLabel.trim() ?? ''),
-      about: about.trim(),
-      products: products.map((product, index) => ({
-        ...product,
-        id: index === 0 ? 'vendor-product-primary' : product.id,
-        name: product.name.trim(),
-        priceLabel: formatPriceForCountry(country.trim(), product.priceLabel.trim()),
-        imageSymbol: product.imageSymbol?.trim() || logoSymbol.trim() || '📦',
-      })),
-    });
+    try {
+      setIsSubmitting(true);
+      setSubmitNotice('Saving your vendor profile...');
+      await onComplete({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        businessName: businessName.trim(),
+        logoSymbol: logoSymbol.trim(),
+        category: category.trim(),
+        country: country.trim(),
+        phone: phone.trim(),
+        openingHours,
+        openingHoursRows,
+        firstProductName: products[0]?.name.trim() ?? '',
+        firstProductPrice: formatPriceForCountry(country.trim(), products[0]?.priceLabel.trim() ?? ''),
+        about: about.trim(),
+        products: products.map((product, index) => ({
+          ...product,
+          id: index === 0 ? 'vendor-product-primary' : product.id,
+          name: product.name.trim(),
+          priceLabel: formatPriceForCountry(country.trim(), product.priceLabel.trim()),
+          imageSymbol: product.imageSymbol?.trim() || logoSymbol.trim() || '📦',
+        })),
+      });
+      setSubmitNotice(null);
+    } catch (error) {
+      setSubmitNotice(
+        error instanceof Error
+          ? error.message
+          : 'Could not complete vendor setup right now. Please try again.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -243,7 +260,10 @@ export function VendorSetupScreen({
                   <Text style={styles.inputLabel}>First name</Text>
                   <TextInput
                     value={firstName}
-                    onChangeText={setFirstName}
+                    onChangeText={(value) => {
+                      setFirstName(value);
+                      setSubmitNotice(null);
+                    }}
                     placeholder="Michaello"
                     placeholderTextColor="#9CA3AF"
                     style={styles.input}
@@ -254,7 +274,10 @@ export function VendorSetupScreen({
                   <Text style={styles.inputLabel}>Last name</Text>
                   <TextInput
                     value={lastName}
-                    onChangeText={setLastName}
+                    onChangeText={(value) => {
+                      setLastName(value);
+                      setSubmitNotice(null);
+                    }}
                     placeholder="Jansen"
                     placeholderTextColor="#9CA3AF"
                     style={styles.input}
@@ -266,7 +289,10 @@ export function VendorSetupScreen({
                 <Text style={styles.inputLabel}>Business name</Text>
                 <TextInput
                   value={businessName}
-                  onChangeText={setBusinessName}
+                  onChangeText={(value) => {
+                    setBusinessName(value);
+                    setSubmitNotice(null);
+                  }}
                   placeholder="Cocero"
                   placeholderTextColor="#9CA3AF"
                   style={styles.input}
@@ -277,7 +303,10 @@ export function VendorSetupScreen({
                 <Text style={styles.inputLabel}>Logo symbol</Text>
                 <TextInput
                   value={logoSymbol}
-                  onChangeText={setLogoSymbol}
+                  onChangeText={(value) => {
+                    setLogoSymbol(value);
+                    setSubmitNotice(null);
+                  }}
                   placeholder="🥥"
                   placeholderTextColor="#9CA3AF"
                   style={styles.input}
@@ -289,7 +318,10 @@ export function VendorSetupScreen({
                 <View style={styles.pickerWrap}>
                   <Picker
                     selectedValue={category}
-                    onValueChange={(value) => setCategory(String(value))}
+                    onValueChange={(value) => {
+                      setCategory(String(value));
+                      setSubmitNotice(null);
+                    }}
                     style={styles.picker}
                   >
                     <Picker.Item label="Select a category" value="" />
@@ -305,7 +337,10 @@ export function VendorSetupScreen({
                 <View style={styles.pickerWrap}>
                   <Picker
                     selectedValue={country}
-                    onValueChange={(value) => setCountry(String(value))}
+                    onValueChange={(value) => {
+                      setCountry(String(value));
+                      setSubmitNotice(null);
+                    }}
                     style={styles.picker}
                     enabled={!isResolvingCountry}
                   >
@@ -320,7 +355,10 @@ export function VendorSetupScreen({
                 <Text style={styles.inputLabel}>Phone</Text>
                 <TextInput
                   value={phone}
-                  onChangeText={setPhone}
+                  onChangeText={(value) => {
+                    setPhone(value);
+                    setSubmitNotice(null);
+                  }}
                   placeholder="+31 6 12345678"
                   placeholderTextColor="#9CA3AF"
                   style={styles.input}
@@ -330,7 +368,13 @@ export function VendorSetupScreen({
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Opening times</Text>
-                <VendorOpeningHoursEditor rows={openingHoursRows} onChange={setOpeningHoursRows} />
+                <VendorOpeningHoursEditor
+                  rows={openingHoursRows}
+                  onChange={(rows) => {
+                    setOpeningHoursRows(rows);
+                    setSubmitNotice(null);
+                  }}
+                />
                 <Text style={styles.helperText}>
                   Add one or more schedule rows like `Mon-Fri 08:00-17:00`.
                 </Text>
@@ -363,7 +407,10 @@ export function VendorSetupScreen({
                           <Text style={styles.inputLabel}>Name</Text>
                           <TextInput
                             value={product.name}
-                            onChangeText={(value) => updateProduct(product.id, 'name', value)}
+                            onChangeText={(value) => {
+                              updateProduct(product.id, 'name', value);
+                              setSubmitNotice(null);
+                            }}
                             placeholder="Fresh Coconut Water"
                             placeholderTextColor="#9CA3AF"
                             style={styles.input}
@@ -374,7 +421,10 @@ export function VendorSetupScreen({
                           <Text style={styles.inputLabel}>Price</Text>
                           <TextInput
                             value={product.priceLabel}
-                            onChangeText={(value) => updateProduct(product.id, 'priceLabel', value)}
+                            onChangeText={(value) => {
+                              updateProduct(product.id, 'priceLabel', value);
+                              setSubmitNotice(null);
+                            }}
                             placeholder="5.50"
                             placeholderTextColor="#9CA3AF"
                             style={styles.input}
@@ -390,7 +440,10 @@ export function VendorSetupScreen({
                 <Text style={styles.inputLabel}>About</Text>
                 <TextInput
                   value={about}
-                  onChangeText={setAbout}
+                  onChangeText={(value) => {
+                    setAbout(value);
+                    setSubmitNotice(null);
+                  }}
                   placeholder="Tell customers what you sell and what makes you special."
                   placeholderTextColor="#9CA3AF"
                   style={[styles.input, styles.textArea]}
@@ -400,17 +453,25 @@ export function VendorSetupScreen({
               </View>
             </ScrollView>
 
+            {submitNotice ? <Text style={styles.submitNotice}>{submitNotice}</Text> : null}
+
             <Pressable
-              style={[styles.submitButton, !isComplete && styles.submitButtonPending]}
-              onPress={handleSubmit}
+              style={[
+                styles.submitButton,
+                !isComplete && styles.submitButtonPending,
+                isSubmitting && styles.submitButtonSubmitting,
+              ]}
+              onPress={() => void handleSubmit()}
+              disabled={isSubmitting}
             >
+              {isSubmitting ? <ActivityIndicator size="small" color="#FFFFFF" /> : null}
               <Text
                 style={[
                   styles.submitButtonText,
                   !isComplete && styles.submitButtonTextPending,
                 ]}
               >
-                Create vendor profile
+                {isSubmitting ? 'Creating vendor profile...' : 'Create vendor profile'}
               </Text>
             </Pressable>
 
@@ -622,9 +683,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
+    flexDirection: 'row',
+    gap: 10,
   },
   submitButtonPending: {
     backgroundColor: '#93C5FD',
+  },
+  submitButtonSubmitting: {
+    opacity: 0.92,
   },
   submitButtonText: {
     color: '#FFFFFF',
@@ -640,5 +706,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     textAlign: 'center',
+  },
+  submitNotice: {
+    marginTop: 8,
+    color: '#B45309',
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+    fontWeight: '700',
   },
 });
