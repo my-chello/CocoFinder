@@ -99,6 +99,15 @@ function confirmInBrowser(title: string, message: string) {
   return globalThis.confirm(`${title}\n\n${message}`);
 }
 
+function showInfoMessage(title: string, message: string) {
+  if (Platform.OS === 'web' && typeof globalThis.alert === 'function') {
+    globalThis.alert(`${title}\n\n${message}`);
+    return;
+  }
+
+  Alert.alert(title, message);
+}
+
 function VendorProfileEditor({
   initialProfile,
   vendorLiveState,
@@ -1319,7 +1328,7 @@ export function ProfileScreen() {
   }
 
   useEffect(() => {
-    if (!isVendorView || !vendorLiveState.isLive) {
+    if (!isVendorView || !vendorLiveState.isLive || Platform.OS === 'web') {
       return;
     }
 
@@ -1399,7 +1408,39 @@ export function ProfileScreen() {
         };
         await saveVendorLiveState(offlineState);
         setVendorLiveState(offlineState);
-        Alert.alert('Go Offline', 'Live location sharing has been turned off.');
+        showInfoMessage('Go Offline', 'Live location sharing has been turned off.');
+        return;
+      }
+
+      if (Platform.OS === 'web') {
+        if (typeof navigator === 'undefined' || !navigator.geolocation) {
+          showInfoMessage(
+            'Location unavailable',
+            'This browser does not support live location sharing.'
+          );
+          return;
+        }
+
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 30000,
+          });
+        });
+
+        const liveState: VendorLiveState = {
+          isLive: true,
+          location: {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            updatedAt: new Date().toISOString(),
+          },
+        };
+
+        await saveVendorLiveState(liveState);
+        setVendorLiveState(liveState);
+        showInfoMessage('Go Live', 'You are now live and visible to customers on the map.');
         return;
       }
 
@@ -1438,9 +1479,9 @@ export function ProfileScreen() {
 
       await saveVendorLiveState(liveState);
       setVendorLiveState(liveState);
-      Alert.alert('Go Live', 'You are now live and visible to customers on the map.');
+      showInfoMessage('Go Live', 'You are now live and visible to customers on the map.');
     } catch {
-      Alert.alert(
+      showInfoMessage(
         'Could not go live',
         'We need GPS access to share your live location. Please try again.'
       );
