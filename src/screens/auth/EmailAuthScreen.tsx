@@ -24,6 +24,11 @@ type FieldErrors = {
   confirmPassword?: string;
 };
 
+type NoticeState = {
+  tone: 'error' | 'success' | 'info';
+  message: string;
+} | null;
+
 function isValidEmail(value: string) {
   return /\S+@\S+\.\S+/.test(value.trim());
 }
@@ -49,6 +54,7 @@ export function EmailAuthScreen({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [verificationState, setVerificationState] = useState<VerificationState>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [notice, setNotice] = useState<NoticeState>(null);
   const roleLabel = role === 'vendor' ? 'Vendor' : role === 'admin' ? 'Admin' : 'Customer';
 
   const title = useMemo(
@@ -77,11 +83,16 @@ export function EmailAuthScreen({
 
   async function handleSubmit() {
     if (!validateForm()) {
+      setNotice({
+        tone: 'error',
+        message: 'Please fix the highlighted fields before continuing.',
+      });
       return;
     }
 
     try {
       setIsSubmitting(true);
+      setNotice(mode === 'login' ? { tone: 'info', message: 'Logging in...' } : null);
 
       if (mode === 'login') {
         await onLogin(email.trim(), password);
@@ -100,10 +111,19 @@ export function EmailAuthScreen({
         setConfirmPassword('');
         setShowPassword(false);
         setFieldErrors({});
+        setNotice({
+          tone: 'success',
+          message: 'Verification email sent. Check your inbox and then log in.',
+        });
         return;
       }
     } catch (error) {
       const message = getReadableAuthErrorMessage(error);
+      console.error('Email auth submit failed', error);
+      setNotice({
+        tone: 'error',
+        message,
+      });
       Alert.alert(mode === 'login' ? 'Log in failed' : 'Sign up failed', message);
     } finally {
       setIsSubmitting(false);
@@ -115,15 +135,28 @@ export function EmailAuthScreen({
       setFieldErrors({
         email: 'Please enter a valid email address',
       });
+      setNotice({
+        tone: 'error',
+        message: 'Enter a valid email address first.',
+      });
       return;
     }
 
     try {
       setIsSubmitting(true);
       await onForgotPassword(email.trim());
+      setNotice({
+        tone: 'success',
+        message: 'Password reset email sent. Check your inbox.',
+      });
       Alert.alert('Reset email sent', 'Check your inbox for the password reset link.');
     } catch (error) {
       const message = getReadableAuthErrorMessage(error);
+      console.error('Password reset failed', error);
+      setNotice({
+        tone: 'error',
+        message,
+      });
       Alert.alert('Reset failed', message);
     } finally {
       setIsSubmitting(false);
@@ -194,17 +227,49 @@ export function EmailAuthScreen({
         <View style={styles.modeSwitcher}>
           <Pressable
             style={[styles.modeButton, mode === 'login' && styles.modeButtonActive]}
-            onPress={() => setMode('login')}
+            onPress={() => {
+              setMode('login');
+              setNotice(null);
+            }}
           >
             <Text style={[styles.modeText, mode === 'login' && styles.modeTextActive]}>Log in</Text>
           </Pressable>
           <Pressable
             style={[styles.modeButton, mode === 'signup' && styles.modeButtonActive]}
-            onPress={() => setMode('signup')}
+            onPress={() => {
+              setMode('signup');
+              setNotice(null);
+            }}
           >
             <Text style={[styles.modeText, mode === 'signup' && styles.modeTextActive]}>Sign up</Text>
           </Pressable>
         </View>
+
+        {notice ? (
+          <View
+            style={[
+              styles.noticeCard,
+              notice.tone === 'error'
+                ? styles.noticeCardError
+                : notice.tone === 'success'
+                  ? styles.noticeCardSuccess
+                  : styles.noticeCardInfo,
+            ]}
+          >
+            <Text
+              style={[
+                styles.noticeText,
+                notice.tone === 'error'
+                  ? styles.noticeTextError
+                  : notice.tone === 'success'
+                    ? styles.noticeTextSuccess
+                    : styles.noticeTextInfo,
+              ]}
+            >
+              {notice.message}
+            </Text>
+          </View>
+        ) : null}
 
         <View style={styles.form}>
           <TextInput
@@ -212,6 +277,7 @@ export function EmailAuthScreen({
             onChangeText={(value) => {
               setEmail(value);
               setFieldErrors((current) => ({ ...current, email: undefined }));
+              setNotice(null);
             }}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -226,12 +292,14 @@ export function EmailAuthScreen({
             onChangeText={(value) => {
               setPassword(value);
               setFieldErrors((current) => ({ ...current, password: undefined }));
+              setNotice(null);
             }}
             secureTextEntry={!showPassword}
             autoCapitalize="none"
             placeholder="Password"
             placeholderTextColor="#8C97A8"
             style={[styles.input, fieldErrors.password && styles.inputError]}
+            onSubmitEditing={() => void handleSubmit()}
           />
           {fieldErrors.password ? (
             <Text style={styles.fieldErrorText}>{fieldErrors.password}</Text>
@@ -243,12 +311,14 @@ export function EmailAuthScreen({
                 onChangeText={(value) => {
                   setConfirmPassword(value);
                   setFieldErrors((current) => ({ ...current, confirmPassword: undefined }));
+                  setNotice(null);
                 }}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 placeholder="Confirm password"
                 placeholderTextColor="#8C97A8"
                 style={[styles.input, fieldErrors.confirmPassword && styles.inputError]}
+                onSubmitEditing={() => void handleSubmit()}
               />
               {fieldErrors.confirmPassword ? (
                 <Text style={styles.fieldErrorText}>{fieldErrors.confirmPassword}</Text>
@@ -375,6 +445,38 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 12,
+  },
+  noticeCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  noticeCardError: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  noticeCardSuccess: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  noticeCardInfo: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+  },
+  noticeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  noticeTextError: {
+    color: '#B91C1C',
+  },
+  noticeTextSuccess: {
+    color: '#047857',
+  },
+  noticeTextInfo: {
+    color: '#1D4ED8',
   },
   input: {
     minHeight: 58,
