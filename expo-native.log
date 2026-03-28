@@ -1,0 +1,9 @@
+Starting project at C:\Users\mwede\OneDrive - Wederfoort-IT\Desktop\DEV-CocoFinder
+Starting Metro Bundler
+
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+ ERROR  An unknown error occurred while installing React Native DevTools. Details:
+
+spawn EPERM
+Waiting on http://localhost:8081
+Logs for your project will appear below.

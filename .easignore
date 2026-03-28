@@ -1,0 +1,10 @@
+.git
+node_modules
+.expo
+snapshots
+dist
+expo-native.log
+expo-native.err.log
+expo-web.log
+expo-web.err.log
+supabase/.temp

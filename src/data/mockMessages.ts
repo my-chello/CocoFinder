@@ -1,0 +1,258 @@
+import { vendorTabRecords } from './mockVendors';
+import type { ChatMessage, ConversationSummary } from '../types/messages';
+
+type SeedConversation = {
+  vendorId: string;
+  lastMessagePreview: string;
+  lastMessageAt: string;
+  lastMessageSortMinutesAgo: number;
+  unreadCount: number;
+};
+
+const seededConversationMeta: Record<string, SeedConversation> = {
+  'vendor-cocero': {
+    vendorId: 'vendor-cocero',
+    lastMessagePreview: 'Yes, fresh coconut water is available right now.',
+    lastMessageAt: '2 min ago',
+    lastMessageSortMinutesAgo: 2,
+    unreadCount: 1,
+  },
+  'vendor-roast-route': {
+    vendorId: 'vendor-roast-route',
+    lastMessagePreview: 'We will be by the station in about 8 minutes.',
+    lastMessageAt: '14 min ago',
+    lastMessageSortMinutesAgo: 14,
+    unreadCount: 0,
+  },
+  'vendor-sweet-wheel': {
+    vendorId: 'vendor-sweet-wheel',
+    lastMessagePreview: 'Today we have stroopwafels and vanilla soft serve.',
+    lastMessageAt: '1 hr ago',
+    lastMessageSortMinutesAgo: 60,
+    unreadCount: 0,
+  },
+  'vendor-north-market': {
+    vendorId: 'vendor-north-market',
+    lastMessagePreview: 'We just stocked fresh vegetables and Dutch apples.',
+    lastMessageAt: '28 min ago',
+    lastMessageSortMinutesAgo: 28,
+    unreadCount: 0,
+  },
+  'vendor-truck-i-pan-almere': {
+    vendorId: 'vendor-truck-i-pan-almere',
+    lastMessagePreview: 'The smoker is on and BBQ ribs are available now.',
+    lastMessageAt: '9 min ago',
+    lastMessageSortMinutesAgo: 9,
+    unreadCount: 0,
+  },
+  'vendor-stroopwafel-kar': {
+    vendorId: 'vendor-stroopwafel-kar',
+    lastMessagePreview: 'Fresh stroopwafels are coming off the iron right now.',
+    lastMessageAt: '6 min ago',
+    lastMessageSortMinutesAgo: 6,
+    unreadCount: 0,
+  },
+  'vendor-friet-van-pansen': {
+    vendorId: 'vendor-friet-van-pansen',
+    lastMessagePreview: 'Friet speciaal is available and we are serving now.',
+    lastMessageAt: '11 min ago',
+    lastMessageSortMinutesAgo: 11,
+    unreadCount: 0,
+  },
+  'vendor-haring-henk': {
+    vendorId: 'vendor-haring-henk',
+    lastMessagePreview: 'Yes, we still have herring and kibbeling today.',
+    lastMessageAt: '16 min ago',
+    lastMessageSortMinutesAgo: 16,
+    unreadCount: 0,
+  },
+};
+
+export const conversationSummaries: ConversationSummary[] = vendorTabRecords.map((record) => {
+  const seeded = seededConversationMeta[record.vendor.id];
+
+  return {
+    id: `conversation-${record.vendor.id}`,
+    conversationType: 'customer_vendor',
+    vendorId: record.vendor.id,
+    currentUserId: 'user-customer-alex',
+    currentParticipantRole: 'customer',
+    otherParticipantUserId: record.owner.id,
+    otherParticipantRole: 'vendor',
+    vendorName: record.vendor.businessName,
+    vendorCategory: record.vendor.category,
+    vendorSymbol: record.vendor.imageSymbol ?? record.vendor.imageHint,
+    lastMessagePreview:
+      seeded?.lastMessagePreview ?? `Hi ${record.owner.fullName}, are you open right now?`,
+    lastMessageAt: seeded?.lastMessageAt ?? 'Just now',
+    lastMessageSortMinutesAgo: seeded?.lastMessageSortMinutesAgo ?? 0,
+    unreadCount: seeded?.unreadCount ?? 0,
+    isVendorLive: record.vendor.liveStatus === 'live',
+    isVisibleInInbox: true,
+  };
+});
+
+export const chatMessages: ChatMessage[] = [
+  {
+    id: 'message-cocero-1',
+    conversationId: 'conversation-vendor-cocero',
+    senderUserId: 'user-customer-alex',
+    senderRole: 'customer',
+    senderName: 'Alex Customer',
+    body: 'Hi, are you in Muzenpark right now?',
+    sentAt: '5 min ago',
+  },
+  {
+    id: 'message-cocero-2',
+    conversationId: 'conversation-vendor-cocero',
+    senderUserId: 'user-vendor-cocero',
+    senderRole: 'vendor',
+    senderName: 'Maya Cocero',
+    body: 'Yes, we are live there now near the main path.',
+    sentAt: '4 min ago',
+  },
+  {
+    id: 'message-cocero-3',
+    conversationId: 'conversation-vendor-cocero',
+    senderUserId: 'user-customer-alex',
+    senderRole: 'customer',
+    senderName: 'Alex Customer',
+    body: 'Nice. Do you still have fresh coconut water?',
+    sentAt: '3 min ago',
+  },
+  {
+    id: 'message-cocero-4',
+    conversationId: 'conversation-vendor-cocero',
+    senderUserId: 'user-vendor-cocero',
+    senderRole: 'vendor',
+    senderName: 'Maya Cocero',
+    body: 'Yes, fresh coconut water is available right now.',
+    sentAt: '2 min ago',
+  },
+  {
+    id: 'message-roast-1',
+    conversationId: 'conversation-vendor-roast-route',
+    senderUserId: 'user-customer-alex',
+    senderRole: 'customer',
+    senderName: 'Alex Customer',
+    body: 'Will you be near Almere Centrum soon?',
+    sentAt: '19 min ago',
+  },
+  {
+    id: 'message-roast-2',
+    conversationId: 'conversation-vendor-roast-route',
+    senderUserId: 'user-vendor-roast',
+    senderRole: 'vendor',
+    senderName: 'Mila Roast',
+    body: 'We will be by Almere Centrum in about 8 minutes.',
+    sentAt: '14 min ago',
+  },
+  {
+    id: 'message-sweet-1',
+    conversationId: 'conversation-vendor-sweet-wheel',
+    senderUserId: 'user-customer-alex',
+    senderRole: 'customer',
+    senderName: 'Alex Customer',
+    body: 'What desserts do you have today?',
+    sentAt: '1 hr ago',
+  },
+  {
+    id: 'message-sweet-2',
+    conversationId: 'conversation-vendor-sweet-wheel',
+    senderUserId: 'user-vendor-sweet',
+    senderRole: 'vendor',
+    senderName: 'Nina Sweet',
+    body: 'Today we have stroopwafels and vanilla soft serve.',
+    sentAt: '1 hr ago',
+  },
+  {
+    id: 'message-market-1',
+    conversationId: 'conversation-vendor-north-market',
+    senderUserId: 'user-customer-alex',
+    senderRole: 'customer',
+    senderName: 'Alex Customer',
+    body: 'Do you still have berry boxes today?',
+    sentAt: '31 min ago',
+  },
+  {
+    id: 'message-market-2',
+    conversationId: 'conversation-vendor-north-market',
+    senderUserId: 'user-vendor-market',
+    senderRole: 'vendor',
+    senderName: 'Jonas Market',
+    body: 'Yes, we just stocked fresh vegetables and Dutch apples too.',
+    sentAt: '28 min ago',
+  },
+  {
+    id: 'message-bbq-1',
+    conversationId: 'conversation-vendor-truck-i-pan-almere',
+    senderUserId: 'user-customer-alex',
+    senderRole: 'customer',
+    senderName: 'Alex Customer',
+    body: 'Are the ribs available right now?',
+    sentAt: '12 min ago',
+  },
+  {
+    id: 'message-bbq-2',
+    conversationId: 'conversation-vendor-truck-i-pan-almere',
+    senderUserId: 'user-vendor-truck-i-pan',
+    senderRole: 'vendor',
+    senderName: 'Ravi Pan',
+    body: 'The smoker is on and BBQ ribs are available now.',
+    sentAt: '9 min ago',
+  },
+  {
+    id: 'message-stroop-1',
+    conversationId: 'conversation-vendor-stroopwafel-kar',
+    senderUserId: 'user-customer-alex',
+    senderRole: 'customer',
+    senderName: 'Alex Customer',
+    body: 'Are you making fresh stroopwafels today?',
+    sentAt: '8 min ago',
+  },
+  {
+    id: 'message-stroop-2',
+    conversationId: 'conversation-vendor-stroopwafel-kar',
+    senderUserId: 'user-vendor-stroopwafel',
+    senderRole: 'vendor',
+    senderName: 'Sanne Wafel',
+    body: 'Fresh stroopwafels are coming off the iron right now.',
+    sentAt: '6 min ago',
+  },
+  {
+    id: 'message-friet-1',
+    conversationId: 'conversation-vendor-friet-van-pansen',
+    senderUserId: 'user-customer-alex',
+    senderRole: 'customer',
+    senderName: 'Alex Customer',
+    body: 'Do you have friet speciaal today?',
+    sentAt: '13 min ago',
+  },
+  {
+    id: 'message-friet-2',
+    conversationId: 'conversation-vendor-friet-van-pansen',
+    senderUserId: 'user-vendor-friet',
+    senderRole: 'vendor',
+    senderName: 'Piet Pansen',
+    body: 'Friet speciaal is available and we are serving now.',
+    sentAt: '11 min ago',
+  },
+  {
+    id: 'message-haring-1',
+    conversationId: 'conversation-vendor-haring-henk',
+    senderUserId: 'user-customer-alex',
+    senderRole: 'customer',
+    senderName: 'Alex Customer',
+    body: 'Do you still have herring today?',
+    sentAt: '18 min ago',
+  },
+  {
+    id: 'message-haring-2',
+    conversationId: 'conversation-vendor-haring-henk',
+    senderUserId: 'user-vendor-haring',
+    senderRole: 'vendor',
+    senderName: 'Henk Visser',
+    body: 'Yes, we still have herring and kibbeling today.',
+    sentAt: '16 min ago',
+  },
+];
