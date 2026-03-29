@@ -36,6 +36,16 @@ const userMarkerIcon =
     </svg>
   `);
 
+function getGoogleMaps() {
+  if (typeof globalThis === 'undefined' || !('google' in globalThis)) {
+    return null;
+  }
+
+  return (globalThis as typeof globalThis & {
+    google?: typeof google;
+  }).google ?? null;
+}
+
 function distanceLabel(distanceMeters: DistanceOption) {
   return distanceMeters >= 1000 ? `${distanceMeters / 1000} km` : `${distanceMeters} m`;
 }
@@ -131,11 +141,13 @@ function MapBoundsController({
   const map = useMap();
 
   useEffect(() => {
-    if (!map || !shouldFit || typeof google === 'undefined') {
+    const googleMaps = getGoogleMaps();
+
+    if (!map || !shouldFit || !googleMaps?.maps) {
       return;
     }
 
-    const bounds = new google.maps.LatLngBounds();
+    const bounds = new googleMaps.maps.LatLngBounds();
     let hasPoints = false;
 
     if (userCoordinates) {
@@ -165,6 +177,33 @@ function MapBoundsController({
   return null;
 }
 
+function MapLoadingCard({
+  title,
+  copy,
+  actionLabel,
+  onAction,
+}: {
+  title: string;
+  copy: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
+  return (
+    <View style={styles.loadingCardWrap}>
+      <View style={styles.loadingCard}>
+        <Text style={styles.mapHeroEyebrow}>Google Maps</Text>
+        <Text style={styles.loadingTitle}>{title}</Text>
+        <Text style={styles.loadingCopy}>{copy}</Text>
+        {actionLabel && onAction ? (
+          <Pressable style={styles.loadingButton} onPress={onAction}>
+            <Text style={styles.loadingButtonText}>{actionLabel}</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
 export function MapScreen() {
   const navigation = useNavigation<any>();
   const tabBarHeight = useBottomTabBarHeight();
@@ -175,6 +214,8 @@ export function MapScreen() {
   const [locationStatus, setLocationStatus] = useState('Requesting browser location access...');
   const [mapsStatus, setMapsStatus] = useState('Loading Google Maps...');
   const [mapsError, setMapsError] = useState<string | null>(null);
+  const [isMapsReady, setIsMapsReady] = useState(false);
+  const [mapsReloadKey, setMapsReloadKey] = useState(0);
   const [cameraRequest, setCameraRequest] = useState<CameraRequest | null>(null);
   const [shouldFitMap, setShouldFitMap] = useState(true);
   const { vendorTabRecords, reloadVendorData } = useVendorData(userCoordinates);
@@ -301,20 +342,38 @@ export function MapScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    if (isMapsReady || mapsError) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setMapsStatus('Google Maps is taking longer than expected');
+      setMapsError(
+        'The map did not finish loading in time on this mobile web session. Try loading the map again.'
+      );
+    }, 8000);
+
+    return () => window.clearTimeout(timeout);
+  }, [isMapsReady, mapsError, mapsReloadKey]);
+
   if (!env.googleMapsApiKey) {
     return <MissingGoogleMapsCard />;
   }
 
   return (
     <APIProvider
+      key={`google-maps-provider-${mapsReloadKey}`}
       apiKey={env.googleMapsApiKey}
       onLoad={() => {
+        setIsMapsReady(true);
         setMapsStatus('Google Maps loaded successfully');
         setMapsError(null);
       }}
       onError={(error) => {
         const message =
           error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error);
+        setIsMapsReady(false);
         setMapsStatus('Google Maps failed to load');
         setMapsError(
           `${message}. Most often this means billing is off, Maps JavaScript API is disabled, or localhost is not allowed in HTTP referrers.`
@@ -324,73 +383,93 @@ export function MapScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           <View style={styles.mapSurface}>
-            <Map
-              mapId={env.googleMapsMapId || undefined}
-              defaultZoom={13}
-              defaultCenter={{ lat: defaultCenter.latitude, lng: defaultCenter.longitude }}
-              gestureHandling="greedy"
-              disableDefaultUI={false}
-              zoomControl
-              fullscreenControl={false}
-              streetViewControl={false}
-              mapTypeControl={false}
-              clickableIcons={false}
-              style={styles.googleMap}
-            >
-              <MapCameraController request={cameraRequest} />
-              <MapBoundsController
-                shouldFit={shouldFitMap}
-                userCoordinates={userCoordinates}
-                vendors={allLiveVendors}
-                onDone={() => setShouldFitMap(false)}
-              />
-              {hasUserLocation && userCoordinates ? (
-                <Marker
-                  position={{ lat: userCoordinates.latitude, lng: userCoordinates.longitude }}
-                  icon={{
-                    url: userMarkerIcon,
-                    scaledSize: typeof google !== 'undefined' ? new google.maps.Size(26, 26) : undefined,
-                  }}
-                  title="You are here"
+            {isMapsReady && !mapsError ? (
+              <Map
+                mapId={env.googleMapsMapId || undefined}
+                defaultZoom={13}
+                defaultCenter={{ lat: defaultCenter.latitude, lng: defaultCenter.longitude }}
+                gestureHandling="greedy"
+                disableDefaultUI={false}
+                zoomControl
+                fullscreenControl={false}
+                streetViewControl={false}
+                mapTypeControl={false}
+                clickableIcons={false}
+                style={styles.googleMap}
+              >
+                <MapCameraController request={cameraRequest} />
+                <MapBoundsController
+                  shouldFit={shouldFitMap}
+                  userCoordinates={userCoordinates}
+                  vendors={allLiveVendors}
+                  onDone={() => setShouldFitMap(false)}
                 />
-              ) : null}
-
-              {allLiveVendors.map((record) =>
-                record.latestLocation ? (
+                {hasUserLocation && userCoordinates ? (
                   <Marker
-                    key={record.vendor.id}
-                    position={{
-                      lat: record.latestLocation.latitude,
-                      lng: record.latestLocation.longitude,
-                    }}
-                    title={record.vendor.businessName}
+                    position={{ lat: userCoordinates.latitude, lng: userCoordinates.longitude }}
                     icon={{
-                      url: buildVendorMarkerIcon(
-                        record,
-                        Boolean(activeDistanceMeters && !prioritizedVendorIds.has(record.vendor.id))
-                      ),
+                      url: userMarkerIcon,
+                      scaledSize: getGoogleMaps()?.maps
+                        ? new (getGoogleMaps()!.maps.Size)(26, 26)
+                        : undefined,
                     }}
-                    onClick={() => setSelectedVendorId(record.vendor.id)}
+                    title="You are here"
                   />
-                ) : null
-              )}
+                ) : null}
 
-              {selectedVendor?.latestLocation ? (
-                <InfoWindow
-                  position={{
-                    lat: selectedVendor.latestLocation.latitude,
-                    lng: selectedVendor.latestLocation.longitude,
-                  }}
-                  onCloseClick={() => setSelectedVendorId(null)}
-                >
-                  <div style={{ maxWidth: 220 }}>
-                    <strong>{selectedVendor.vendor.businessName}</strong>
-                    <br />
-                    {selectedVendor.vendor.category} · {selectedVendor.vendor.distanceKm} km away
-                  </div>
-                </InfoWindow>
-              ) : null}
-            </Map>
+                {allLiveVendors.map((record) =>
+                  record.latestLocation ? (
+                    <Marker
+                      key={record.vendor.id}
+                      position={{
+                        lat: record.latestLocation.latitude,
+                        lng: record.latestLocation.longitude,
+                      }}
+                      title={record.vendor.businessName}
+                      icon={{
+                        url: buildVendorMarkerIcon(
+                          record,
+                          Boolean(activeDistanceMeters && !prioritizedVendorIds.has(record.vendor.id))
+                        ),
+                      }}
+                      onClick={() => setSelectedVendorId(record.vendor.id)}
+                    />
+                  ) : null
+                )}
+
+                {selectedVendor?.latestLocation ? (
+                  <InfoWindow
+                    position={{
+                      lat: selectedVendor.latestLocation.latitude,
+                      lng: selectedVendor.latestLocation.longitude,
+                    }}
+                    onCloseClick={() => setSelectedVendorId(null)}
+                  >
+                    <div style={{ maxWidth: 220 }}>
+                      <strong>{selectedVendor.vendor.businessName}</strong>
+                      <br />
+                      {selectedVendor.vendor.category} · {selectedVendor.vendor.distanceKm} km away
+                    </div>
+                  </InfoWindow>
+                ) : null}
+              </Map>
+            ) : (
+              <MapLoadingCard
+                title={mapsError ? 'Map load paused' : 'Loading map'}
+                copy={
+                  mapsError
+                    ? mapsError
+                    : 'We are preparing Google Maps for this mobile web session so the tab opens safely instead of showing a white screen.'
+                }
+                actionLabel="Try again"
+                onAction={() => {
+                  setMapsError(null);
+                  setMapsStatus('Loading Google Maps...');
+                  setIsMapsReady(false);
+                  setMapsReloadKey((current) => current + 1);
+                }}
+              />
+            )}
 
             <View style={styles.topOverlay}>
               <View style={styles.mapHeroCard}>
@@ -856,6 +935,46 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     justifyContent: 'center',
+  },
+  loadingCardWrap: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  loadingCard: {
+    borderRadius: 28,
+    backgroundColor: 'rgba(246, 236, 223, 0.96)',
+    padding: 20,
+    gap: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 6,
+  },
+  loadingTitle: {
+    color: '#111827',
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: '900',
+  },
+  loadingCopy: {
+    color: '#475569',
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  loadingButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    backgroundColor: '#111827',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  loadingButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
   missingCard: {
     borderRadius: 28,
