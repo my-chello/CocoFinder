@@ -30,6 +30,7 @@ import {
   type VendorEditableProduct,
   getVendorLiveState,
   getVendorProfile,
+  normalizeVendorLogoSymbol,
   saveVendorLiveState,
   saveVendorProfile,
   type VendorLiveState,
@@ -208,7 +209,17 @@ function VendorProfileEditor({
   }
 
   function updateField<K extends keyof VendorProfileSetup>(key: K, value: VendorProfileSetup[K]) {
-    setDraft((current) => (current ? { ...current, [key]: value } : current));
+    setDraft((current) =>
+      current
+        ? {
+            ...current,
+            [key]:
+              key === 'logoSymbol'
+                ? (normalizeVendorLogoSymbol(String(value)) as VendorProfileSetup[K])
+                : value,
+          }
+        : current
+    );
   }
 
   function updateProducts(nextProducts: VendorEditableProduct[]) {

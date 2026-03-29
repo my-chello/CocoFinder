@@ -23,7 +23,11 @@ import {
   getVendorOpeningHoursSummary,
   type VendorOpeningHoursRow,
 } from '../../lib/vendorOpeningHours';
-import type { VendorEditableProduct, VendorProfileSetup } from '../../lib/vendorProfile';
+import {
+  normalizeVendorLogoSymbol,
+  type VendorEditableProduct,
+  type VendorProfileSetup,
+} from '../../lib/vendorProfile';
 
 export function VendorSetupScreen({
   onBack,
@@ -193,7 +197,7 @@ export function VendorSetupScreen({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         businessName: businessName.trim(),
-        logoSymbol: logoSymbol.trim(),
+        logoSymbol: normalizeVendorLogoSymbol(logoSymbol),
         category: category.trim(),
         country: country.trim(),
         phone: phone.trim(),
@@ -304,12 +308,14 @@ export function VendorSetupScreen({
                 <TextInput
                   value={logoSymbol}
                   onChangeText={(value) => {
-                    setLogoSymbol(value);
+                    setLogoSymbol(normalizeVendorLogoSymbol(value));
                     setSubmitNotice(null);
                   }}
                   placeholder="🥥"
                   placeholderTextColor="#9CA3AF"
                   style={styles.input}
+                  autoCapitalize="none"
+                  autoCorrect={false}
                 />
               </View>
 

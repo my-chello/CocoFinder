@@ -43,6 +43,8 @@ export type VendorLiveState = {
   location: VendorStoredLocation | null;
 };
 
+export const MAX_VENDOR_LOGO_SYMBOL_GRAPHEMES = 1;
+
 const VENDOR_PROFILE_STORAGE_KEY = 'cocofinder:vendor-profile';
 const VENDOR_LIVE_STATE_STORAGE_KEY = 'cocofinder:vendor-live-state';
 const VENDOR_CACHE_OWNER_STORAGE_KEY = 'cocofinder:vendor-cache-owner';
@@ -79,6 +81,28 @@ type ProfileLookupRow = {
   email: string | null;
   role: string | null;
 };
+
+function splitGraphemes(value: string) {
+  if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+    return Array.from(segmenter.segment(value), (part) => part.segment);
+  }
+
+  return Array.from(value);
+}
+
+export function normalizeVendorLogoSymbol(
+  value: string,
+  maxGraphemes = MAX_VENDOR_LOGO_SYMBOL_GRAPHEMES
+) {
+  const compactValue = value.replace(/\s+/g, ' ').trim();
+
+  if (!compactValue) {
+    return '';
+  }
+
+  return splitGraphemes(compactValue).slice(0, maxGraphemes).join('');
+}
 
 function getScopedProductId(userId: string, productId: string) {
   const normalizedProductId = productId.trim() || 'vendor-product-primary';
@@ -214,6 +238,7 @@ function normalizeVendorProfile(parsed: VendorProfileSetup): VendorProfileSetup 
     return null;
   }
 
+  const normalizedLogoSymbol = normalizeVendorLogoSymbol(parsed.logoSymbol);
   const normalizedProducts = Array.isArray(parsed.products)
     ? parsed.products.filter(
         (product): product is VendorEditableProduct =>
@@ -249,7 +274,7 @@ function normalizeVendorProfile(parsed: VendorProfileSetup): VendorProfileSetup 
             name: parsed.firstProductName,
             priceLabel: parsed.firstProductPrice,
             isAvailable: true,
-            imageSymbol: parsed.logoSymbol,
+            imageSymbol: normalizedLogoSymbol,
           },
         ];
 
@@ -257,6 +282,7 @@ function normalizeVendorProfile(parsed: VendorProfileSetup): VendorProfileSetup 
     ...parsed,
     firstName: parsed.firstName || 'Michaello',
     lastName: parsed.lastName || 'Vendor',
+    logoSymbol: normalizedLogoSymbol,
     country: parsed.country || 'Netherlands',
     openingHours: normalizedOpeningHours,
     openingHoursRows: normalizedOpeningHoursRows,
