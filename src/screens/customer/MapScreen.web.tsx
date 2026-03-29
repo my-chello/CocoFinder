@@ -17,6 +17,8 @@ type Coordinates = {
   longitude: number;
 };
 
+type LocationPermissionState = 'idle' | 'requesting' | 'granted' | 'denied' | 'unsupported';
+
 type CameraRequest = {
   center: { lat: number; lng: number };
   zoom?: number;
@@ -211,7 +213,9 @@ export function MapScreen() {
   const [userCoordinates, setUserCoordinates] = useState<Coordinates | null>(null);
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
   const [activeDistanceMeters, setActiveDistanceMeters] = useState<DistanceOption | null>(null);
-  const [locationStatus, setLocationStatus] = useState('Requesting browser location access...');
+  const [locationPermissionState, setLocationPermissionState] =
+    useState<LocationPermissionState>('idle');
+  const [locationStatus, setLocationStatus] = useState('Enable location to use nearby discovery on the map.');
   const [mapsStatus, setMapsStatus] = useState('Loading Google Maps...');
   const [mapsError, setMapsError] = useState<string | null>(null);
   const [isMapsReady, setIsMapsReady] = useState(false);
@@ -260,11 +264,49 @@ export function MapScreen() {
 
   useEffect(() => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setLocationPermissionState('unsupported');
       setLocationStatus('This browser does not support live location');
       return;
     }
 
-    setLocationStatus('Requesting browser location access...');
+    if (typeof navigator.permissions?.query !== 'function') {
+      return;
+    }
+
+    let isMounted = true;
+
+    void navigator.permissions
+      .query({ name: 'geolocation' as PermissionName })
+      .then((permissionStatus) => {
+        if (!isMounted) {
+          return;
+        }
+
+        if (permissionStatus.state === 'granted') {
+          setLocationPermissionState('granted');
+          setLocationStatus('Showing your live browser location');
+          return;
+        }
+
+        if (permissionStatus.state === 'denied') {
+          setLocationPermissionState('denied');
+          setLocationStatus('Location access is blocked. Enable it in your browser settings to use nearby discovery.');
+          return;
+        }
+
+        setLocationPermissionState('idle');
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (locationPermissionState !== 'granted' || typeof navigator === 'undefined' || !navigator.geolocation) {
+      return;
+    }
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
@@ -277,6 +319,7 @@ export function MapScreen() {
       },
       () => {
         setHasUserLocation(false);
+        setLocationPermissionState('denied');
         setLocationStatus('Allow browser location access to show your live position');
       },
       {
@@ -289,7 +332,39 @@ export function MapScreen() {
     return () => {
       navigator.geolocation.clearWatch(watchId);
     };
-  }, []);
+  }, [locationPermissionState]);
+
+  function requestBrowserLocation() {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setLocationPermissionState('unsupported');
+      setLocationStatus('This browser does not support live location');
+      return;
+    }
+
+    setLocationPermissionState('requesting');
+    setLocationStatus('Requesting browser location access...');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setHasUserLocation(true);
+        setUserCoordinates({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setLocationPermissionState('granted');
+        setLocationStatus('Showing your live browser location');
+      },
+      () => {
+        setHasUserLocation(false);
+        setLocationPermissionState('denied');
+        setLocationStatus('Allow browser location access to show your live position');
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 30000,
+      }
+    );
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -541,6 +616,24 @@ export function MapScreen() {
                 <Text style={styles.filterFeedbackHelper}>{locationStatus}</Text>
                 <Text style={styles.filterFeedbackHelper}>{mapsStatus}</Text>
                 {mapsError ? <Text style={styles.filterFeedbackError}>{mapsError}</Text> : null}
+                {locationPermissionState !== 'granted' ? (
+                  <Pressable
+                    style={[
+                      styles.locationActionButton,
+                      locationPermissionState === 'requesting' && styles.locationActionButtonDisabled,
+                    ]}
+                    disabled={locationPermissionState === 'requesting'}
+                    onPress={requestBrowserLocation}
+                  >
+                    <Text style={styles.locationActionButtonText}>
+                      {locationPermissionState === 'denied'
+                        ? 'Try location again'
+                        : locationPermissionState === 'requesting'
+                          ? 'Requesting location...'
+                          : 'Use my location'}
+                    </Text>
+                  </Pressable>
+                ) : null}
               </View>
             </View>
 
@@ -822,6 +915,22 @@ const styles = StyleSheet.create({
     color: '#FECACA',
     fontSize: 11,
     lineHeight: 16,
+  },
+  locationActionButton: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  locationActionButtonDisabled: {
+    backgroundColor: '#CBD5E1',
+  },
+  locationActionButtonText: {
+    color: '#0F172A',
+    fontSize: 12,
+    fontWeight: '800',
   },
   previewCard: {
     position: 'absolute',
