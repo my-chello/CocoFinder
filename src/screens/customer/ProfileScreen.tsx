@@ -1328,15 +1328,53 @@ export function ProfileScreen() {
   }
 
   useEffect(() => {
-    if (!isVendorView || !vendorLiveState.isLive || Platform.OS === 'web') {
+    if (!isVendorView || !vendorLiveState.isLive) {
       return;
     }
 
     let isMounted = true;
     let subscription: Location.LocationSubscription | null = null;
+    let webWatchId: number | null = null;
+
+    function handleLivePosition(latitude: number, longitude: number) {
+      if (!isMounted) {
+        return;
+      }
+
+      const nextLiveState: VendorLiveState = {
+        isLive: true,
+        location: {
+          latitude,
+          longitude,
+          updatedAt: new Date().toISOString(),
+        },
+      };
+
+      setVendorLiveState(nextLiveState);
+      void saveVendorLiveState(nextLiveState);
+    }
 
     async function startWatchingPosition() {
       try {
+        if (Platform.OS === 'web') {
+          if (typeof navigator === 'undefined' || !navigator.geolocation) {
+            return;
+          }
+
+          webWatchId = navigator.geolocation.watchPosition(
+            (position) => {
+              handleLivePosition(position.coords.latitude, position.coords.longitude);
+            },
+            () => {},
+            {
+              enableHighAccuracy: true,
+              timeout: 15000,
+              maximumAge: 5000,
+            }
+          );
+          return;
+        }
+
         subscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.Highest,
@@ -1344,21 +1382,7 @@ export function ProfileScreen() {
             distanceInterval: 25,
           },
           (position) => {
-            if (!isMounted) {
-              return;
-            }
-
-            const nextLiveState: VendorLiveState = {
-              isLive: true,
-              location: {
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
-                updatedAt: new Date().toISOString(),
-              },
-            };
-
-            setVendorLiveState(nextLiveState);
-            void saveVendorLiveState(nextLiveState);
+            handleLivePosition(position.coords.latitude, position.coords.longitude);
           }
         );
       } catch {}
@@ -1369,6 +1393,10 @@ export function ProfileScreen() {
     return () => {
       isMounted = false;
       subscription?.remove();
+
+      if (webWatchId !== null && typeof navigator !== 'undefined' && navigator.geolocation) {
+        navigator.geolocation.clearWatch(webWatchId);
+      }
     };
   }, [isVendorView, vendorLiveState.isLive]);
 
