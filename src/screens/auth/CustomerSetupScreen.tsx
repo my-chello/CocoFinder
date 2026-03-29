@@ -46,6 +46,46 @@ function getInitialDate(value: string) {
 
 const minimumDateOfBirth = new Date('1900-01-01');
 
+function normalizeWebDateInput(value: string) {
+  const digits = value.replace(/[^\d]/g, '').slice(0, 8);
+
+  if (digits.length <= 2) {
+    return digits;
+  }
+
+  if (digits.length <= 4) {
+    return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+  }
+
+  return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}`;
+}
+
+function isValidStoredDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    return false;
+  }
+
+  const parsedDate = new Date(value);
+  return !Number.isNaN(parsedDate.getTime());
+}
+
+function parseWebDateInput(value: string) {
+  const trimmedValue = value.trim();
+
+  if (!/^\d{2}-\d{2}-\d{4}$/.test(trimmedValue)) {
+    return null;
+  }
+
+  const [day, month, year] = trimmedValue.split('-');
+  const storedValue = `${year}-${month}-${day}`;
+
+  if (!isValidStoredDate(storedValue)) {
+    return null;
+  }
+
+  return storedValue;
+}
+
 export function CustomerSetupScreen({
   onBack,
   onComplete,
@@ -71,10 +111,23 @@ export function CustomerSetupScreen({
     dateOfBirth.trim().length > 0;
 
   function handleSubmit() {
+    const normalizedDateOfBirth =
+      Platform.OS === 'web' ? parseWebDateInput(dateOfBirth) : dateOfBirth.trim();
+
     if (!isComplete) {
       Alert.alert(
         'Complete customer setup',
         'Please fill in your first name, last name, phone number, and date of birth to continue.'
+      );
+      return;
+    }
+
+    if (!normalizedDateOfBirth || !isValidStoredDate(normalizedDateOfBirth)) {
+      Alert.alert(
+        'Invalid date of birth',
+        Platform.OS === 'web'
+          ? 'Use the format DD-MM-YYYY for your date of birth.'
+          : 'Please choose a valid date of birth to continue.'
       );
       return;
     }
@@ -84,7 +137,7 @@ export function CustomerSetupScreen({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       phoneNumber: phoneNumber.trim() || undefined,
-      dateOfBirth: dateOfBirth.trim() || undefined,
+      dateOfBirth: normalizedDateOfBirth || undefined,
       profilePhotoUrl: profilePhotoUrl.trim() || undefined,
       profilePhotoBase64: profilePhotoBase64.trim() || undefined,
       profilePhotoMimeType: profilePhotoMimeType.trim() || undefined,
@@ -238,35 +291,53 @@ export function CustomerSetupScreen({
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Date of birth *</Text>
-                <Text style={styles.inputHint}>Select your date of birth using the native date picker.</Text>
-                <Pressable
-                  style={styles.inputPressable}
-                  onPress={handleOpenDateOfBirthPicker}
-                >
-                  <Text style={[styles.inputPressableText, !dateOfBirth && styles.inputPressablePlaceholder]}>
-                    {dateOfBirth ? formatDateOfBirthLabel(dateOfBirth) : 'Select date of birth'}
-                  </Text>
-                </Pressable>
-                {showDateOfBirthPicker ? (
-                  <View style={styles.datePickerWrap}>
-                    <DateTimePicker
-                      value={dateOfBirthPickerValue}
-                      mode="date"
-                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                      minimumDate={minimumDateOfBirth}
-                      maximumDate={new Date()}
-                      onChange={handleDateOfBirthChange}
-                    />
-                    {Platform.OS === 'ios' ? (
-                      <Pressable
-                        style={styles.datePickerDoneButton}
-                        onPress={() => setShowDateOfBirthPicker(false)}
-                      >
-                        <Text style={styles.datePickerDoneButtonText}>Done</Text>
-                      </Pressable>
+                <Text style={styles.inputHint}>
+                  {Platform.OS === 'web'
+                    ? 'Enter your date of birth as DD-MM-YYYY.'
+                    : 'Select your date of birth using the native date picker.'}
+                </Text>
+                {Platform.OS === 'web' ? (
+                  <TextInput
+                    value={dateOfBirth}
+                    onChangeText={(value) => setDateOfBirth(normalizeWebDateInput(value))}
+                    placeholder="DD-MM-YYYY"
+                    placeholderTextColor="#94A3B8"
+                    style={styles.input}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                ) : (
+                  <>
+                    <Pressable
+                      style={styles.inputPressable}
+                      onPress={handleOpenDateOfBirthPicker}
+                    >
+                      <Text style={[styles.inputPressableText, !dateOfBirth && styles.inputPressablePlaceholder]}>
+                        {dateOfBirth ? formatDateOfBirthLabel(dateOfBirth) : 'Select date of birth'}
+                      </Text>
+                    </Pressable>
+                    {showDateOfBirthPicker ? (
+                      <View style={styles.datePickerWrap}>
+                        <DateTimePicker
+                          value={dateOfBirthPickerValue}
+                          mode="date"
+                          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                          minimumDate={minimumDateOfBirth}
+                          maximumDate={new Date()}
+                          onChange={handleDateOfBirthChange}
+                        />
+                        {Platform.OS === 'ios' ? (
+                          <Pressable
+                            style={styles.datePickerDoneButton}
+                            onPress={() => setShowDateOfBirthPicker(false)}
+                          >
+                            <Text style={styles.datePickerDoneButtonText}>Done</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
                     ) : null}
-                  </View>
-                ) : null}
+                  </>
+                )}
               </View>
             </ScrollView>
 
