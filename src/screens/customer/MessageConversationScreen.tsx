@@ -44,6 +44,7 @@ export function MessageConversationScreen() {
   const messages = getMessagesForConversation(route.params.conversationId);
   const composerBottomInset = keyboardVisible ? 0 : tabBarHeight + Math.max(insets.bottom, 12);
   const isVendorMessageView = authRole === 'vendor' || (authRole === 'admin' && activeViewMode === 'vendor');
+  const isWeb = Platform.OS === 'web';
 
   useEffect(() => {
     if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -133,8 +134,8 @@ export function MessageConversationScreen() {
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <KeyboardAvoidingView
         style={styles.keyboardAvoider}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 92 : 24}
+        behavior={isWeb ? undefined : Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={isWeb ? 0 : Platform.OS === 'ios' ? 92 : 24}
       >
         <View style={styles.container}>
           <View style={styles.headerCard}>
@@ -195,6 +196,7 @@ export function MessageConversationScreen() {
               { paddingBottom: composerBottomInset + composerHeight + 12 },
             ]}
             keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
             onContentSizeChange={() => {
               scrollViewRef.current?.scrollToEnd({ animated: true });
             }}
@@ -260,7 +262,7 @@ export function MessageConversationScreen() {
               onChangeText={setDraft}
               placeholder={messagePlaceholder}
               placeholderTextColor="#7C8BA1"
-              style={styles.input}
+              style={[styles.input, isWeb && styles.inputWeb]}
               multiline
             />
             <Pressable style={styles.sendButton} onPress={handleSend}>
@@ -484,6 +486,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F5F7',
     borderRadius: 22,
     textAlignVertical: 'top',
+  },
+  inputWeb: {
+    fontSize: 16,
+    lineHeight: 22,
   },
   sendButton: {
     backgroundColor: '#0A84FF',
