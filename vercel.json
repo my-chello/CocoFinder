@@ -2,7 +2,7 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/((?!_expo/|favicon.ico|metadata.json).*)",
+      "source": "/((?!_expo/|favicon.ico|metadata.json|auth/confirm(?:\\.html)?|email-confirmed(?:\\.html)?).*)",
       "destination": "/index.html"
     }
   ]

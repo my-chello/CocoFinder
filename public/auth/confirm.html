@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Confirming email | CocoFinder</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f3f1ef;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #4b4f56;
+    }
+
+    .wrap {
+      max-width: 720px;
+      margin: 40px auto;
+      background: #f7f5f3;
+      border: 1px solid #e5e1dc;
+      padding: 40px;
+      text-align: center;
+      box-sizing: border-box;
+    }
+
+    .brand {
+      font-family: Georgia, serif;
+      font-size: 32px;
+      font-weight: 700;
+      color: #3f4348;
+    }
+
+    .divider {
+      height: 1px;
+      background: #ddd7d1;
+      margin: 30px 0;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 32px;
+      color: #50545a;
+    }
+
+    p {
+      font-size: 18px;
+      color: #5b6066;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">CocoFinder</div>
+    <div class="divider"></div>
+    <h1>Confirming your email</h1>
+    <p>Please wait while we verify your CocoFinder account.</p>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+    const supabase = createClient(
+      'https://dladdmmfopdqrwytwbdb.supabase.co',
+      'sb_publishable_tcYLog0EfUFh6RYxcjFlDQ_Z7xzSLZE'
+    )
+
+    const url = new URL(window.location.href)
+    const token_hash = url.searchParams.get('token_hash')
+    const type = url.searchParams.get('type')
+
+    async function run() {
+      if (!token_hash || !type) {
+        window.location.replace('/email-confirmed.html?status=missing')
+        return
+      }
+
+      const { error } = await supabase.auth.verifyOtp({
+        token_hash,
+        type
+      })
+
+      if (error) {
+        window.location.replace('/email-confirmed.html?status=error')
+        return
+      }
+
+      window.location.replace('/email-confirmed.html?status=success')
+    }
+
+    run()
+  </script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Email confirmed | CocoFinder</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f3f1ef;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #4b4f56;
+    }
+
+    .wrap {
+      max-width: 720px;
+      margin: 40px auto;
+      background: #f7f5f3;
+      border: 1px solid #e5e1dc;
+      padding: 40px;
+      text-align: center;
+      box-sizing: border-box;
+    }
+
+    .brand {
+      font-family: Georgia, serif;
+      font-size: 32px;
+      font-weight: 700;
+      color: #3f4348;
+    }
+
+    .divider {
+      height: 1px;
+      background: #ddd7d1;
+      margin: 30px 0;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 32px;
+      color: #50545a;
+    }
+
+    p {
+      font-size: 18px;
+      color: #5b6066;
+      line-height: 1.6;
+    }
+
+    .btn {
+      display: inline-block;
+      margin-top: 24px;
+      background: #000;
+      color: #fff;
+      text-decoration: none;
+      padding: 16px 28px;
+      border-radius: 999px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .small {
+      margin-top: 24px;
+      font-size: 14px;
+      color: #6b7076;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">CocoFinder</div>
+    <div class="divider"></div>
+    <h1>You’re all set</h1>
+    <p id="message">Your email has been confirmed successfully. Your CocoFinder account is now ready.</p>
+    <a class="btn" href="https://coco-finder.vercel.app">Open CocoFinder</a>
+    <div class="small">You can now log in and start exploring nearby vendors.</div>
+  </div>
+
+  <script>
+    const status = new URL(window.location.href).searchParams.get('status')
+    const message = document.getElementById('message')
+
+    if (status === 'error') {
+      message.textContent = 'We could not verify your email automatically. Please try the confirmation link again or request a new one.'
+    }
+
+    if (status === 'missing') {
+      message.textContent = 'This confirmation link is incomplete. Please open the latest verification email and try again.'
+    }
+  </script>
+</body>
+</html>

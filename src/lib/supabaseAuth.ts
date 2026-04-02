@@ -42,6 +42,14 @@ function getRedirectConfigurationHint(redirectTo: string) {
   return `Add this exact URL to Supabase Redirect URLs: ${redirectTo}`;
 }
 
+function getEmailConfirmationRedirectUrl() {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+
+  return 'https://coco-finder.vercel.app';
+}
+
 function generateNonce(length = 32) {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
@@ -250,6 +258,7 @@ export async function signUpWithEmail(
     email,
     password,
     options: {
+      emailRedirectTo: getEmailConfirmationRedirectUrl(),
       data: {
         app_role: role,
       },
