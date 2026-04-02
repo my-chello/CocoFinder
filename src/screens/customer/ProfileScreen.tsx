@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
@@ -1277,6 +1277,8 @@ export function ProfileScreen() {
   );
   const [isSavingNotificationPreferences, setIsSavingNotificationPreferences] = useState(false);
   const [isUpdatingLiveState, setIsUpdatingLiveState] = useState(false);
+  const vendorLocationSubscriptionRef = useRef<Location.LocationSubscription | null>(null);
+  const vendorWebWatchIdRef = useRef<number | null>(null);
 
   const isVendorView =
     authRole === 'vendor' || (authRole === 'admin' && activeViewMode === 'vendor');
@@ -1344,8 +1346,6 @@ export function ProfileScreen() {
     }
 
     let isMounted = true;
-    let subscription: Location.LocationSubscription | null = null;
-    let webWatchId: number | null = null;
 
     function handleLivePosition(latitude: number, longitude: number) {
       if (!isMounted) {
@@ -1372,7 +1372,7 @@ export function ProfileScreen() {
             return;
           }
 
-          webWatchId = navigator.geolocation.watchPosition(
+          vendorWebWatchIdRef.current = navigator.geolocation.watchPosition(
             (position) => {
               handleLivePosition(position.coords.latitude, position.coords.longitude);
             },
@@ -1386,7 +1386,7 @@ export function ProfileScreen() {
           return;
         }
 
-        subscription = await Location.watchPositionAsync(
+        vendorLocationSubscriptionRef.current = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.Highest,
             timeInterval: 15000,
@@ -1403,10 +1403,16 @@ export function ProfileScreen() {
 
     return () => {
       isMounted = false;
-      subscription?.remove();
+      vendorLocationSubscriptionRef.current?.remove();
+      vendorLocationSubscriptionRef.current = null;
 
-      if (webWatchId !== null && typeof navigator !== 'undefined' && navigator.geolocation) {
-        navigator.geolocation.clearWatch(webWatchId);
+      if (
+        vendorWebWatchIdRef.current !== null &&
+        typeof navigator !== 'undefined' &&
+        navigator.geolocation
+      ) {
+        navigator.geolocation.clearWatch(vendorWebWatchIdRef.current);
+        vendorWebWatchIdRef.current = null;
       }
     };
   }, [isVendorView, vendorLiveState.isLive]);
@@ -1441,6 +1447,18 @@ export function ProfileScreen() {
 
     try {
       if (!nextValue) {
+        vendorLocationSubscriptionRef.current?.remove();
+        vendorLocationSubscriptionRef.current = null;
+
+        if (
+          vendorWebWatchIdRef.current !== null &&
+          typeof navigator !== 'undefined' &&
+          navigator.geolocation
+        ) {
+          navigator.geolocation.clearWatch(vendorWebWatchIdRef.current);
+          vendorWebWatchIdRef.current = null;
+        }
+
         const offlineState: VendorLiveState = {
           isLive: false,
           location: vendorLiveState.location,
