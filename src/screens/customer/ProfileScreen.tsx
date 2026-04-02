@@ -1782,7 +1782,9 @@ export function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[styles.content, Platform.OS === 'web' && styles.contentWeb]}
+      >
         {isVendorView ? (
           <>
             <View style={styles.hero}>
@@ -1963,6 +1965,11 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     gap: 14,
+  },
+  contentWeb: {
+    // The web tab bar is absolutely positioned above the page content, so
+    // the profile footer needs extra space to stay fully tappable.
+    paddingBottom: 150,
   },
   hero: {
     backgroundColor: '#F6ECDF',
