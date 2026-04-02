@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { vendorTabRecords as baseVendorTabRecords, vendors as baseVendors } from '../data/mockVendors';
 import {
   getVendorLiveState,
@@ -442,6 +442,10 @@ export function useVendorData(userCoordinates: UserCoordinates = null) {
     location: null,
   });
   const [publicVendorRecords, setPublicVendorRecords] = useState<VendorTabRecord[]>([]);
+  const realtimeReloadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const realtimeChannelNameRef = useRef(
+    `vendor-discovery-realtime-${Math.random().toString(36).slice(2)}`
+  );
 
   const loadVendorProfile = useCallback(async () => {
     const [profile, liveState] = await Promise.all([getVendorProfile(), getVendorLiveState()]);
@@ -502,6 +506,17 @@ export function useVendorData(userCoordinates: UserCoordinates = null) {
     }
   }, []);
 
+  const scheduleRealtimeReload = useCallback(() => {
+    if (realtimeReloadTimeoutRef.current) {
+      clearTimeout(realtimeReloadTimeoutRef.current);
+    }
+
+    realtimeReloadTimeoutRef.current = setTimeout(() => {
+      realtimeReloadTimeoutRef.current = null;
+      void loadVendorProfile();
+    }, 200);
+  }, [loadVendorProfile]);
+
   useEffect(() => {
     void loadVendorProfile();
   }, [loadVendorProfile]);
@@ -512,27 +527,50 @@ export function useVendorData(userCoordinates: UserCoordinates = null) {
     }
 
     const channel = supabase
-      .channel('vendor-discovery-realtime')
+      .channel(realtimeChannelNameRef.current)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'vendor_profiles' },
         () => {
-          void loadVendorProfile();
+          scheduleRealtimeReload();
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'vendor_products' },
         () => {
-          void loadVendorProfile();
+          scheduleRealtimeReload();
         }
       )
-      .subscribe();
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'demo_vendor_profiles' },
+        () => {
+          scheduleRealtimeReload();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'demo_vendor_products' },
+        () => {
+          scheduleRealtimeReload();
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          void loadVendorProfile();
+        }
+      });
 
     return () => {
+      if (realtimeReloadTimeoutRef.current) {
+        clearTimeout(realtimeReloadTimeoutRef.current);
+        realtimeReloadTimeoutRef.current = null;
+      }
+
       void supabase.removeChannel(channel);
     };
-  }, [loadVendorProfile]);
+  }, [loadVendorProfile, scheduleRealtimeReload]);
 
   const vendorTabRecords = useMemo(() => {
     const localRecords = mergeVendorProfileIntoRecords(baseVendorTabRecords, vendorProfile, vendorLiveState);
