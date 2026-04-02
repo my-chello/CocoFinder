@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { palette } from '../../config/theme';
 import { useFavorites } from '../../context/FavoritesContext';
 import { useCurrentLocation } from '../../hooks/useCurrentLocation';
@@ -34,7 +34,9 @@ export function VendorsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[styles.content, Platform.OS === 'web' && styles.contentWeb]}
+      >
         <View style={styles.hero}>
           <View style={styles.heroTop}>
             <View style={styles.heroCopyWrap}>
@@ -166,6 +168,9 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 16,
     paddingBottom: 32,
+  },
+  contentWeb: {
+    paddingBottom: 150,
   },
   hero: {
     backgroundColor: '#F6ECDF',
