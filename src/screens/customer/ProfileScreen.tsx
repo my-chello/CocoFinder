@@ -44,6 +44,9 @@ import {
 } from '../../lib/customerProfile';
 
 type NotificationPreferenceKey = keyof NotificationPreferences;
+type WakeLockSentinelLike = {
+  release: () => Promise<void>;
+};
 
 function toStoredDateValue(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -1277,8 +1280,10 @@ export function ProfileScreen() {
   );
   const [isSavingNotificationPreferences, setIsSavingNotificationPreferences] = useState(false);
   const [isUpdatingLiveState, setIsUpdatingLiveState] = useState(false);
+  const [wakeLockWarning, setWakeLockWarning] = useState<string | null>(null);
   const vendorLocationSubscriptionRef = useRef<Location.LocationSubscription | null>(null);
   const vendorWebWatchIdRef = useRef<number | null>(null);
+  const screenWakeLockRef = useRef<WakeLockSentinelLike | null>(null);
 
   const isVendorView =
     authRole === 'vendor' || (authRole === 'admin' && activeViewMode === 'vendor');
@@ -1417,6 +1422,73 @@ export function ProfileScreen() {
     };
   }, [isVendorView, vendorLiveState.isLive]);
 
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !isVendorView) {
+      return;
+    }
+
+    async function releaseWakeLock() {
+      if (!screenWakeLockRef.current) {
+        return;
+      }
+
+      try {
+        await screenWakeLockRef.current.release();
+      } catch {}
+
+      screenWakeLockRef.current = null;
+    }
+
+    async function requestWakeLock() {
+      if (!vendorLiveState.isLive) {
+        await releaseWakeLock();
+        setWakeLockWarning(null);
+        return;
+      }
+
+      const webNavigator = typeof navigator === 'undefined' ? null : (navigator as Navigator & {
+        wakeLock?: {
+          request: (type: 'screen') => Promise<WakeLockSentinelLike>;
+        };
+      });
+
+      if (!webNavigator?.wakeLock?.request) {
+        setWakeLockWarning(
+          'Keep CocoFinder open and your phone unlocked while you are live. Your browser cannot keep the screen awake.'
+        );
+        return;
+      }
+
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        return;
+      }
+
+      try {
+        await releaseWakeLock();
+        screenWakeLockRef.current = await webNavigator.wakeLock.request('screen');
+        setWakeLockWarning(null);
+      } catch {
+        setWakeLockWarning(
+          'Keep CocoFinder open and your phone unlocked while you are live. Your browser could not keep the screen awake.'
+        );
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        void requestWakeLock();
+      }
+    }
+
+    void requestWakeLock();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      void releaseWakeLock();
+    };
+  }, [isVendorView, vendorLiveState.isLive]);
+
   async function handleResetOnboarding() {
     try {
       await resetOnboarding();
@@ -1459,6 +1531,15 @@ export function ProfileScreen() {
           vendorWebWatchIdRef.current = null;
         }
 
+        if (screenWakeLockRef.current) {
+          try {
+            await screenWakeLockRef.current.release();
+          } catch {}
+          screenWakeLockRef.current = null;
+        }
+
+        setWakeLockWarning(null);
+
         const offlineState: VendorLiveState = {
           isLive: false,
           location: vendorLiveState.location,
@@ -1497,6 +1578,7 @@ export function ProfileScreen() {
 
         await saveVendorLiveState(liveState);
         setVendorLiveState(liveState);
+        setWakeLockWarning(null);
         showInfoMessage('Go Live', 'You are now live and visible to customers on the map.');
         return;
       }
@@ -1536,6 +1618,7 @@ export function ProfileScreen() {
 
       await saveVendorLiveState(liveState);
       setVendorLiveState(liveState);
+      setWakeLockWarning(null);
       showInfoMessage('Go Live', 'You are now live and visible to customers on the map.');
     } catch {
       showInfoMessage(
@@ -1869,6 +1952,9 @@ export function ProfileScreen() {
                   ? 'Your current device location is now used as your live map position.'
                   : 'Go live to appear on the customer map. Offline vendors are hidden from nearby discovery.'}
               </Text>
+              {vendorLiveState.isLive && wakeLockWarning ? (
+                <Text style={styles.liveWarning}>{wakeLockWarning}</Text>
+              ) : null}
             </View>
 
             <VendorProfileEditor
@@ -2378,6 +2464,11 @@ const styles = StyleSheet.create({
   liveHint: {
     color: '#334155',
     lineHeight: 21,
+  },
+  liveWarning: {
+    color: '#9A3412',
+    lineHeight: 21,
+    fontWeight: '700',
   },
   vendorHeaderRow: {
     flexDirection: 'row',
