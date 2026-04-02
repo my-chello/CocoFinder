@@ -11,6 +11,7 @@ import type { ChatMessage, ConversationSummary, ConversationType, MessageSenderR
 
 type MessagesContextValue = {
   conversations: ConversationSummary[];
+  unreadConversationCount: number;
   getConversationById: (conversationId: string) => ConversationSummary | undefined;
   getMessagesForConversation: (conversationId: string) => ChatMessage[];
   openConversationForVendor: (vendorId: string) => Promise<string>;
@@ -781,6 +782,14 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
         .sort((left, right) => left.lastMessageSortMinutesAgo - right.lastMessageSortMinutesAgo),
     [conversations]
   );
+  const unreadConversationCount = useMemo(
+    () =>
+      sortedVisibleConversations.reduce(
+        (count, conversation) => count + (conversation.unreadCount > 0 ? 1 : 0),
+        0
+      ),
+    [sortedVisibleConversations]
+  );
 
   const getConversationById = useCallback(
     (conversationId: string) => conversations.find((conversation) => conversation.id === conversationId),
@@ -1174,6 +1183,7 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       conversations: sortedVisibleConversations,
+      unreadConversationCount,
       getConversationById,
       getMessagesForConversation,
       openConversationForVendor,
@@ -1191,6 +1201,7 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
       openConversationForVendor,
       sendMessage,
       sortedVisibleConversations,
+      unreadConversationCount,
     ]
   );
 

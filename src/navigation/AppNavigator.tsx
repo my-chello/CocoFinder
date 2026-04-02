@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { Platform, StyleSheet, View } from 'react-native';
 import { palette } from '../config/theme';
 import { useAuth } from '../context/AuthContext';
+import { useMessages } from '../context/MessagesContext';
 import { FavoritesScreen } from '../screens/customer/FavoritesScreen';
 import { MapScreen } from '../screens/customer/MapScreen';
 import { ProfileScreen } from '../screens/customer/ProfileScreen';
@@ -65,6 +66,7 @@ function triggerTabHaptic() {
 
 export function AppNavigator() {
   const { authRole, activeViewMode } = useAuth();
+  const { unreadConversationCount } = useMessages();
   const isVendorView = authRole === 'vendor' || (authRole === 'admin' && activeViewMode === 'vendor');
   const initialRouteName = isVendorView ? 'Profile' : 'Map';
 
@@ -162,6 +164,10 @@ export function AppNavigator() {
         <Tab.Screen
           name="Messages"
           component={MessagesNavigator}
+          options={{
+            tabBarBadge: unreadConversationCount > 0 ? unreadConversationCount : undefined,
+            tabBarBadgeStyle: styles.messagesBadge,
+          }}
           listeners={({ navigation }) => ({
             tabPress: () => {
               triggerTabHaptic();
@@ -225,5 +231,14 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.06,
     shadowRadius: 8,
+  },
+  messagesBadge: {
+    backgroundColor: '#F97316',
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    minWidth: 18,
+    height: 18,
+    lineHeight: 18,
   },
 });
