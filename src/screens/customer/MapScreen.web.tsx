@@ -458,7 +458,7 @@ export function MapScreen() {
                 {allLiveVendors.map((record) =>
                   record.latestLocation ? (
                     <Marker
-                      key={`${record.vendor.id}-${record.latestLocation.recordedAt}`}
+                      key={`${record.vendor.id}-${record.latestLocation.latitude}-${record.latestLocation.longitude}-${record.latestLocation.recordedAt}`}
                       position={{
                         lat: record.latestLocation.latitude,
                         lng: record.latestLocation.longitude,
