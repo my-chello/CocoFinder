@@ -3,7 +3,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { APIProvider, InfoWindow, Map, Marker, useMap } from '@vis.gl/react-google-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { env } from '../../config/env';
 import { palette } from '../../config/theme';
 import { useVendorData } from '../../hooks/useVendorData';
@@ -316,6 +316,22 @@ export function MapScreen() {
   useFocusEffect(
     useCallback(() => {
       void reloadVendorData();
+
+      if (Platform.OS !== 'web') {
+        return undefined;
+      }
+
+      const intervalId = window.setInterval(() => {
+        if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+          return;
+        }
+
+        void reloadVendorData();
+      }, 5000);
+
+      return () => {
+        window.clearInterval(intervalId);
+      };
     }, [reloadVendorData])
   );
 
