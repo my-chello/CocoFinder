@@ -3,14 +3,11 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { APIProvider, InfoWindow, Map, Marker, useMap } from '@vis.gl/react-google-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { env } from '../../config/env';
 import { palette } from '../../config/theme';
 import { useVendorData } from '../../hooks/useVendorData';
 import type { VendorTabRecord } from '../../types/vendor';
-
-const distanceOptions = [500, 1000, 2000] as const;
-type DistanceOption = (typeof distanceOptions)[number];
 
 type Coordinates = {
   latitude: number;
@@ -48,33 +45,12 @@ function getGoogleMaps() {
   }).google ?? null;
 }
 
-function distanceLabel(distanceMeters: DistanceOption) {
-  return distanceMeters >= 1000 ? `${distanceMeters / 1000} km` : `${distanceMeters} m`;
-}
-
-function getDistanceMeters(
-  from: { latitude: number; longitude: number },
-  to: { latitude: number; longitude: number }
-) {
-  const earthRadiusMeters = 6371000;
-  const dLat = ((to.latitude - from.latitude) * Math.PI) / 180;
-  const dLon = ((to.longitude - from.longitude) * Math.PI) / 180;
-  const fromLat = (from.latitude * Math.PI) / 180;
-  const toLat = (to.latitude * Math.PI) / 180;
-
-  const haversine =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(fromLat) * Math.cos(toLat) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-
-  return 2 * earthRadiusMeters * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
-}
-
-function buildVendorMarkerIcon(record: VendorTabRecord, dimmed: boolean) {
+function buildVendorMarkerIcon(record: VendorTabRecord) {
   const isCocero = record.vendor.id === 'vendor-cocero';
   const isTruck = record.vendor.id === 'vendor-truck-i-pan-almere';
-  const bg = dimmed ? '#F8FAFC' : isCocero ? '#ECFDF5' : isTruck ? '#FFF1F2' : '#FFF7ED';
-  const border = dimmed ? '#CBD5E1' : isCocero ? '#10B981' : isTruck ? '#DC2626' : '#F97316';
-  const color = dimmed ? '#64748B' : isCocero ? '#047857' : isTruck ? '#991B1B' : '#9A3412';
+  const bg = isCocero ? '#ECFDF5' : isTruck ? '#FFF1F2' : '#FFF7ED';
+  const border = isCocero ? '#10B981' : isTruck ? '#DC2626' : '#F97316';
+  const color = isCocero ? '#047857' : isTruck ? '#991B1B' : '#9A3412';
   const symbol = record.vendor.imageSymbol ?? record.vendor.imageHint;
 
   return (
@@ -212,7 +188,6 @@ export function MapScreen() {
   const [hasUserLocation, setHasUserLocation] = useState(false);
   const [userCoordinates, setUserCoordinates] = useState<Coordinates | null>(null);
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
-  const [activeDistanceMeters, setActiveDistanceMeters] = useState<DistanceOption | null>(null);
   const [locationPermissionState, setLocationPermissionState] =
     useState<LocationPermissionState>('idle');
   const [locationStatus, setLocationStatus] = useState('Enable location to use nearby discovery on the map.');
@@ -229,38 +204,10 @@ export function MapScreen() {
     [vendorTabRecords]
   );
 
-  const prioritizedDistanceVendors = useMemo(() => {
-    if (!activeDistanceMeters || !userCoordinates) {
-      return allLiveVendors.filter((record) => record.vendor.distanceKm <= 2);
-    }
-
-    return allLiveVendors.filter((record) => {
-      if (!record.latestLocation) {
-        return false;
-      }
-
-      return (
-        getDistanceMeters(userCoordinates, {
-          latitude: record.latestLocation.latitude,
-          longitude: record.latestLocation.longitude,
-        }) <= activeDistanceMeters
-      );
-    });
-  }, [activeDistanceMeters, allLiveVendors, userCoordinates]);
-
-  const prioritizedVendorIds = useMemo(
-    () => new Set(prioritizedDistanceVendors.map((record) => record.vendor.id)),
-    [prioritizedDistanceVendors]
-  );
-
   const selectedVendor =
     allLiveVendors.find((record) => record.vendor.id === selectedVendorId) ?? null;
 
-  const prioritizedSummaryText = activeDistanceMeters
-    ? hasUserLocation && userCoordinates
-      ? `${prioritizedDistanceVendors.length} nearby vendors within ${distanceLabel(activeDistanceMeters)}`
-      : 'Enable location to use distance filter accurately'
-    : `${allLiveVendors.length} live vendors on the map`;
+  const liveSummaryText = `${allLiveVendors.length} live vendors on the map`;
 
   useEffect(() => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -502,10 +449,7 @@ export function MapScreen() {
                       }}
                       title={record.vendor.businessName}
                       icon={{
-                        url: buildVendorMarkerIcon(
-                          record,
-                          Boolean(activeDistanceMeters && !prioritizedVendorIds.has(record.vendor.id))
-                        ),
+                        url: buildVendorMarkerIcon(record),
                       }}
                       onClick={() => setSelectedVendorId(record.vendor.id)}
                     />
@@ -558,61 +502,12 @@ export function MapScreen() {
                   </View>
                 </View>
                 <Text style={styles.mapHeroCopy}>
-                  Google Maps is now used on web. Track live vendors, filter by distance, and jump straight into the best stop nearby.
+                  Google Maps is now used on web. Track live vendors and jump straight into the best stop nearby.
                 </Text>
               </View>
 
-              <View style={styles.filterBox}>
-                <View style={styles.filterBoxIconWrap}>
-                  <Text style={styles.filterBoxIcon}>📍</Text>
-                </View>
-                <View style={styles.filterBoxBody}>
-                  <Text style={styles.filterBoxLabel}>Distance filter</Text>
-                  <Text style={styles.filterBoxValue}>
-                    {activeDistanceMeters ? `Distance: ${distanceLabel(activeDistanceMeters)}` : 'Filter by distance'}
-                  </Text>
-                </View>
-              </View>
-
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.distanceChips}
-              >
-                <Pressable
-                  style={[styles.distanceChip, !activeDistanceMeters && styles.distanceChipActive]}
-                  onPress={() => {
-                    setActiveDistanceMeters(null);
-                    setSelectedVendorId(null);
-                  }}
-                >
-                  <Text style={[styles.distanceChipText, !activeDistanceMeters && styles.distanceChipTextActive]}>
-                    All live
-                  </Text>
-                </Pressable>
-                {distanceOptions.map((distanceOption) => {
-                  const isSelected = activeDistanceMeters === distanceOption;
-
-                  return (
-                  <Pressable
-                    key={distanceOption}
-                    style={[styles.distanceChip, isSelected && styles.distanceChipActive]}
-                    onPress={() => {
-                      setActiveDistanceMeters(isSelected ? null : distanceOption);
-                      setSelectedVendorId(null);
-                      setShouldFitMap(true);
-                    }}
-                  >
-                      <Text style={[styles.distanceChipText, isSelected && styles.distanceChipTextActive]}>
-                        {distanceLabel(distanceOption)}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-
               <View style={styles.filterFeedbackCard}>
-                <Text style={styles.filterFeedbackText}>{prioritizedSummaryText}</Text>
+                <Text style={styles.filterFeedbackText}>{liveSummaryText}</Text>
                 <Text style={styles.filterFeedbackHelper}>{locationStatus}</Text>
                 <Text style={styles.filterFeedbackHelper}>{mapsStatus}</Text>
                 {mapsError ? <Text style={styles.filterFeedbackError}>{mapsError}</Text> : null}
@@ -798,48 +693,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
   },
-  filterBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    minHeight: 58,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.96)',
-    paddingHorizontal: 14,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    elevation: 4,
-  },
-  filterBoxIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#EEF2FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  filterBoxIcon: {
-    color: '#475569',
-    fontSize: 16,
-  },
-  filterBoxBody: {
-    flex: 1,
-    gap: 2,
-  },
-  filterBoxLabel: {
-    color: '#64748B',
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  filterBoxValue: {
-    color: '#0F172A',
-    fontSize: 14,
-    fontWeight: '800',
-  },
   floatingLocateButton: {
     position: 'absolute',
     right: 20,
@@ -871,27 +724,6 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontSize: 12,
     fontWeight: '800',
-  },
-  distanceChips: {
-    gap: 10,
-    paddingRight: 6,
-  },
-  distanceChip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-  },
-  distanceChipActive: {
-    backgroundColor: '#111827',
-  },
-  distanceChipText: {
-    color: '#111827',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  distanceChipTextActive: {
-    color: '#F8FAFC',
   },
   filterFeedbackCard: {
     alignSelf: 'stretch',
