@@ -785,7 +785,7 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
   const unreadConversationCount = useMemo(
     () =>
       sortedVisibleConversations.reduce(
-        (count, conversation) => count + (conversation.unreadCount > 0 ? 1 : 0),
+        (count, conversation) => count + Math.max(0, conversation.unreadCount),
         0
       ),
     [sortedVisibleConversations]
