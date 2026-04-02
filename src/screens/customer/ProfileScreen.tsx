@@ -1603,6 +1603,40 @@ export function ProfileScreen() {
   }
 
   function handleCloseCustomerAccount() {
+    if (Platform.OS === 'web') {
+      const shouldContinue = confirmInBrowser(
+        'Close your account?',
+        'This action cannot be undone. All your data will be permanently deleted.'
+      );
+
+      if (!shouldContinue) {
+        return;
+      }
+
+      const shouldDelete = confirmInBrowser(
+        'Final confirmation',
+        'Are you sure you want to permanently close your customer account?'
+      );
+
+      if (!shouldDelete) {
+        return;
+      }
+
+      void (async () => {
+        try {
+          await clearCustomerLocalCache();
+          setCustomerProfile(null);
+          await signOut();
+        } catch {
+          showInfoMessage(
+            'Delete account failed',
+            'We could not close your account right now. Please try again.'
+          );
+        }
+      })();
+      return;
+    }
+
     Alert.alert(
       'Close your account?',
       'This action cannot be undone. All your data will be permanently deleted.',
@@ -1650,6 +1684,48 @@ export function ProfileScreen() {
   }
 
   function handleCloseVendorAccount() {
+    if (Platform.OS === 'web') {
+      const shouldContinue = confirmInBrowser(
+        'Close your account?',
+        'This action cannot be undone. All your data will be permanently deleted.'
+      );
+
+      if (!shouldContinue) {
+        return;
+      }
+
+      const shouldDelete = confirmInBrowser(
+        'Final confirmation',
+        'Are you sure you want to permanently close your vendor account?'
+      );
+
+      if (!shouldDelete) {
+        return;
+      }
+
+      void (async () => {
+        try {
+          setIsUpdatingLiveState(true);
+          setVendorLiveState({
+            isLive: false,
+            location: null,
+          });
+          await clearVendorLiveState();
+          await clearVendorProfile();
+          setVendorProfile(null);
+          await signOut();
+        } catch {
+          showInfoMessage(
+            'Delete account failed',
+            'We could not close your account right now. Please try again.'
+          );
+        } finally {
+          setIsUpdatingLiveState(false);
+        }
+      })();
+      return;
+    }
+
     Alert.alert(
       'Close your account?',
       'This action cannot be undone. All your data will be permanently deleted.',
